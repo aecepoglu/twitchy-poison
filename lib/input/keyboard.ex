@@ -1,37 +1,25 @@
 defmodule Getch do
-  def start do 
-    spawn(&init/0)
-    :timer.sleep(:infinity)
-  end
-
-  def init do
-    Logger.configure(level: :critical)
-    IO.puts("This is a demo of a basic 'getch' for elixir.")
-    IO.puts("It uses 'tty_sl` to read keys and special characters like arrow_up, etc.")
-    IO.puts("Press 'x' or 'q' to exit.")
+  def init(report_to) do
     Port.open({:spawn, "tty_sl -c -e"}, [:binary, :eof])
-    loop()
+    loop(nil, report_to)
   end
 
-  def loop do
-    IO.write("\rPRESS ANY KEY> ")
+  def loop(_, report_to) do
     receive do
       {_port, {:data, data}} ->
-        data |> translate |> handle_key |> loop
-      _ ->
-        loop()
+        data
+        |> translate
+        |> report(report_to)
+        |> loop(report_to)
+      :quit -> IO.puts("\r\nbye\r")
+      _ -> IO.puts("what??")
     end
   end
 
-  def terminate do 
-    IO.puts("\rBYE\r")
-    System.halt()
+  defp report(key, dest) do
+    send(dest, {:keypress, key})
+    key
   end
-
-  def loop("x"), do: terminate()
-  def loop("q"), do: terminate()
-
-  def loop(_), do: loop()
 
   defp translate("\d"),    do: :backspace
   defp translate("\r"),    do: :enter
@@ -46,25 +34,39 @@ defmodule Getch do
   defp translate("\e[3~"), do: :delete
   defp translate("\e[5~"), do: :pg_up
   defp translate("\e[6~"), do: :pg_dn
-
   defp translate(key),     do: key
-
-  defp handle_key(key), do: display(key)
-
-  defp display(key) when is_atom(key) do 
-    IO.puts("-atom>:#{key}<")
-    key
-  end
-
-  defp display(key) do 
-    IO.puts("- key>#{key}<")
-    key
-  end
 end
 
 defmodule Input.Keyboard do
+  defp handle({:keypress, "a"}, count), do: count + 1
+  defp handle({:keypress, "b"}, count), do: count - 1
+  defp handle({:keypress, _}, count), do: count
+
+  defp render(count) do
+    IO.write(" \rcount: #{count}")
+    count
+  end
+
+  defp loop(n, _child) when n >= 5 do
+    #send(child, :quit) # TODO I _may not_ be responsible for the termination of my children
+    IO.puts("(parent) bye!")
+  end
+
+  defp loop(count, child) do
+    receive do
+      msg ->
+        msg
+        |> handle(count)
+        |> render
+        |> loop(child)
+    end
+  end
+
   def foo() do
-    IO.puts "reading 1 char"
-    Getch.start()
+    parent = self()
+    IO.puts("press A to incr, B to decr. Reach 5 to end")
+    child = spawn(fn -> Getch.init(parent) end)
+    Process.monitor(child)
+    loop(0, child)
   end
 end
