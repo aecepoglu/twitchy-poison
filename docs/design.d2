@@ -1,0 +1,20 @@
+direction: up
+
+IRC.shape: cloud
+IRC.style.multiple: true
+Websocket.shape: cloud
+Websocket.style.multiple: true
+IRCConnection.style.multiple: true
+WebsocketConnection.style.multiple: true
+Goldfish.inbox.shape: queue
+
+IRC <> IRCConnection
+Websocket <> WebsocketConnection
+IRCConnection -> Goldfish.inbox
+WebsocketConnection -> Goldfish.inbox
+Goldfish.inbox -> Goldfish.loop -> Goldfish.update
+Goldfish.Model -> Goldfish.update -> Goldfish.Model
+Goldfish.update -> Goldfish.View
+
+Kakoune <> GoldfishCLI -> Goldfish.inbox
+Goldfish.update -> GoldfishCLI

@@ -1,0 +1,11 @@
+direction: right
+
+Processes {
+	irc connection.style.multiple: true
+
+	keyboard -> controller
+	irc connection -> controller
+	websocket connection -> controller
+	named pipe -> controller
+	controller -> view
+}

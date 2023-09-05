@@ -13,6 +13,7 @@ defmodule TwitchyPoison do
 
   """
   def hello do
-    :world
+    IO.puts "hello"
+    #Input.Keyboard.foo()
   end
 end

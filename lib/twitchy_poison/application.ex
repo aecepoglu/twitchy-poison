@@ -7,14 +7,16 @@ defmodule TwitchyPoison.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      # Starts a worker by calling: TwitchyPoison.Worker.start_link(arg)
-      # {TwitchyPoison.Worker, arg}
-    ]
+    Input.Keyboard.foo()
+    Task.start(fn -> :timer.sleep(1000); IO.puts("done sleeping") end)
+    #children = [
+    #  # Starts a worker by calling: TwitchyPoison.Worker.start_link(arg)
+    #  # {TwitchyPoison.Worker, arg}
+    #]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: TwitchyPoison.Supervisor]
-    Supervisor.start_link(children, opts)
+    ## See https://hexdocs.pm/elixir/Supervisor.html
+    ## for other strategies and supported options
+    #opts = [strategy: :one_for_one, name: TwitchyPoison.Supervisor]
+    #Supervisor.start_link(children, opts)
   end
 end
