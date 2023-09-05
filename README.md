@@ -15,3 +15,7 @@ Rewrite of twitchy-streamer (proprietary / GerbilScheme) to Elixir/OTP
 * a twitch bot
 
 And it exists to serve _me_ . Feature requests are welcome, but I won't necessarily prioritise feature requests that don't align with my ideas.
+
+## Design
+
+![architecture design](docs/design.svg)
