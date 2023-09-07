@@ -1,22 +1,7 @@
 defmodule TwitchyPoison.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
-  @moduledoc false
-
-  use Application
-
-  @impl true
-  def start(_type, _args) do
-    Input.Keyboard.foo()
-    Task.start(fn -> :timer.sleep(1000); IO.puts("done sleeping") end)
-    #children = [
-    #  # Starts a worker by calling: TwitchyPoison.Worker.start_link(arg)
-    #  # {TwitchyPoison.Worker, arg}
-    #]
-
-    ## See https://hexdocs.pm/elixir/Supervisor.html
-    ## for other strategies and supported options
-    #opts = [strategy: :one_for_one, name: TwitchyPoison.Supervisor]
-    #Supervisor.start_link(children, opts)
+  def main(_args \\ []) do
+    # nothing happens here
+    # we populate the supervisor tree
+    # and every bit of code works in/under there
   end
 end

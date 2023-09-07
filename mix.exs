@@ -15,7 +15,7 @@ defmodule TwitchyPoison.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {TwitchyPoison.Application, []}
+      mod: {TwitchyPoison.Supervisor, []}
     ]
   end
 
