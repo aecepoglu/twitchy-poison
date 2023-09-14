@@ -2,31 +2,38 @@ defmodule TwitchyPoison do
   use GenServer
 
   def start_link(_) do
-    GenServer.start_link(__MODULE__, nil, name: :kbd_listener)
+    GenServer.start_link(__MODULE__, nil, name: :hub)
   end
 
   @impl true
   def init(nil) do
-    {:ok, 0}
+    {:ok, Hourglass.make()}
   end
 
   @impl true
-  def handle_cast({:keypress, "a"}, count), do: update(&incr/1, count)
-  def handle_cast({:keypress, "b"}, count), do: update(&decr/1, count)
-  def handle_cast({:keypress, _}, count), do: update(&Function.identity/1, count)
-  # def handle_call({:keypress, "a"}, _from, count), do: update(&incr/1, count)
-  #
-  defp update(f, state) do
-    state_ = f.(state)
-    render(state_)
-    {:noreply, state_}
+  def handle_cast(:tick, model) do
+    Hourglass.tick(model)
+    |> render
+    |> noreply
+  end
+  def handle_cast(:progress, model) do
+    Hourglass.progress(model, 1)
+    |> render
+    |> noreply
   end
 
-  defp incr(x), do: x + 1
-  defp decr(x), do: x - 1
-
-  defp render(count) do
-    IO.write(" \rcount: #{count}")
-    count
+  def tick() do
+    GenServer.cast(:hub, :tick)
   end
+
+  def progress() do
+    GenServer.cast(:hub, :progress)
+  end
+
+  defp render(model) do
+    IO.write("\r" <> Hourglass.to_string(model))
+    model
+  end
+
+  defp noreply(x), do: {:noreply, x}
 end

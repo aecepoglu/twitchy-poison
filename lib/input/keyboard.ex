@@ -39,8 +39,13 @@ defmodule Input.Keyboard do
   end
 
   defp report(key) do
-    GenServer.cast(:kbd_listener, {:keypress, key}) # TODO maybe .cast instead
+    case key do
+      "t" -> TwitchyPoison.tick()
+      "p" -> TwitchyPoison.progress()
+      _ -> nil
+    end
     key
+    # GenServer.cast(:kbd_listener, {:keypress, key})
   end
 
   defp translate("\d"), do: :backspace
