@@ -1,4 +1,3 @@
-
 defmodule CurWin do
   defstruct dur: 8,
             val: 0,
@@ -25,7 +24,7 @@ defmodule CurWin do
     k =
       case x.mode do
         :work -> :done
-        _ -> :broke
+        _     -> :broke
       end
 
     %{x | k => Map.fetch!(x, k) + d_val}
@@ -34,31 +33,22 @@ defmodule CurWin do
   def switch(%__MODULE__{} = x, to) when to in [:work, :break] do
     %{x | mode: to}
   end
-end
-
-defmodule Alarm do
-  defstruct [:type, :val, :snooze, :label]
-
-  def make(:countdown, seconds_later, snooze, label) do
-    %__MODULE__{type: :countdown, val: seconds_later, snooze: snooze, label: label}
+  def string(%CurWin{}=x) do
+    case {x.mode, x.val, x.dur} do
+      {:break, _, _} -> "◬"
+      {_     , 0, 5} -> "○"
+      {_     , 1, 5} -> "◔"
+      {_     , 2, 5} -> "◑"
+      {_     , 3, 5} -> "◕"
+      {_     , 4, 5} -> "●"
+                   _ -> "?"
+    end
   end
-
-  def make_now(:countdown, snooze, label) do
-    make(:countdown, 0, snooze, label)
-  end
-
-  def tick(%__MODULE__{type: :countdown} = x, dt \\ 1) do
-    %{x | val: x.val - dt}
-  end
-
-  def ticks(list, dt) do
-    Enum.map(list, &tick(&1, dt))
-  end
-
-  def is_active?(%{type: :countdown, val: v}), do: v <= 0
 end
 
 defmodule Trend do
+  @bloks ["B", " ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"] |> Enum.with_index(fn x, i -> {i, x} end) |> Map.new()
+
   def make(len) do
     CircBuf.make(len, -1)
   end
@@ -85,67 +75,75 @@ defmodule Trend do
   def to_list(x) do
     CircBuf.take(x, x.size)
   end
+
+  def string(x, n) do
+    CircBuf.take(x, n)
+    |> Enum.map(fn k -> @bloks[ min(max(k + 1, 0), 9) ] end)
+    |> Enum.join("")
+  end
 end
 
 defmodule Hourglass do
-  def add_alarm({past, now, future}, new), do: {past, now, [new | future]}
-
   def make(opts \\ []) do
     duration = Keyword.get(opts, :duration, 5)
     trend_bufsize = Keyword.get(opts, :trend, 5)
-    {Trend.make(trend_bufsize), CurWin.make(duration), []}
+    {Trend.make(trend_bufsize), CurWin.make(duration)}
   end
 
   def tick(model) do
     model
     |> tick_up
-    |> decr_upcoming
-    |> create_idle_notifications()
+    #|> decr_upcoming
+    #|> create_idle_notifications()
   end
 
-  def switch_mode({past, now, future}, mode) do
-    {past, CurWin.switch(now, mode) , future}
+  def alerts({past, _}) do
+    if Trend.idle_too_long?(past) do
+      [Alarm.make_now(:countdown, 0, "split your task")]
+    else
+      []
+    end
   end
 
-  def progress({past, now, future}, dv), do: {past, CurWin.progress(now, dv), future}
-
-  def list_alarms({_, _, alarms}) do
-    alarms
-    |> Enum.filter(&Alarm.is_active?/1)
+  def switch_mode({past, now}, mode) do
+    {past, CurWin.switch(now, mode)}
   end
+
+  def progress({past, now}, dv), do: {past, CurWin.progress(now, dv)}
 
   def remove_plan(model), do: model
 
-  defp tick_up({past, %CurWin{} = x, alarms}) do
+  defp tick_up({past, %CurWin{} = x}) do
     {x_, carry} = CurWin.tick(x)
     past_ = Enum.reduce(carry, past, fn a, b -> Trend.add(b, a) end)
-
-    {past_, x_, alarms}
+    {past_, x_}
   end
 
-  defp decr_upcoming({past, win, alarms}) do
-    alarms_ = Enum.map(alarms, &Alarm.tick/1)
-    {past, win, alarms_}
+  #def add_alarm({past, now, future}, new), do: {past, now, [new | future]}
+  #def list_alarms({_, _, alarms}) do
+  #  alarms
+  #  |> Enum.filter(&Alarm.is_active?/1)
+  #end
+  #defp decr_upcoming({past, win, alarms}) do
+  #  alarms_ = Alarm.ticks(alarms)
+  #  {past, win, alarms_}
+  #end
+  #defp create_idle_notifications({past, win, alarms}) do
+  #
+  #  {past, win}
+  #end
+
+    #future_ = Alarm.string(future)
+
+  def string({past, now}) do
+    past_ = Trend.string(past, 5)
+    now_ = CurWin.string(now)
+    "#{past_} #{now_}"
   end
 
-  defp create_idle_notifications({past, win, alarms}) do
-    alarms_ =
-      if Trend.idle_too_long?(past) do
-        [Alarm.make_now(:countdown, 0, "split your task") | alarms]
-      else
-        alarms
-      end
-
-    {past, win, alarms_}
-  end
-
-  def to_string({past,%CurWin{}=now,_future}) do
-    past_ = past
-    |>Trend.to_list
-    |> Enum.map(fn x -> if x < 0 do "-" else Integer.to_string(x) end end)
-    |> Enum.join
-    now_ = "#{now.val}/#{now.dur}#{if now.mode == :work do 'w' else 'b' end}"
-    future_ = "-"
-    "#{past_} #{now_} #{future_}"
+  def render(x) do
+    import IO.ANSI
+    cursor(1, 1) <> clear_line() <> string(x)
+    |> IO.write
   end
 end

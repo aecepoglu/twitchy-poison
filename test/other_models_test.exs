@@ -47,15 +47,3 @@ defmodule TrendTest do
     assert [-1, -1, -1, -1, -1] == right
   end
 end
-
-defmodule AlarmTest do
-  use ExUnit.Case
-
-  test "" do
-    right =
-      Alarm.make(:countdown, 120, 600, "two mins passed")
-      |> Alarm.tick(17)
-
-    assert Alarm.make(:countdown, 103, 600, "two mins passed") == right
-  end
-end

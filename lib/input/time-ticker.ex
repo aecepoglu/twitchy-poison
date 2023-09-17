@@ -1,7 +1,7 @@
 defmodule Input.TimeTicker do
   use GenServer
 
-  @timeout :timer.seconds(5)
+  @timeout :timer.seconds(60)
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, nil)

@@ -12,7 +12,6 @@ defmodule TwitchyPoison.Supervisor do
         restart: :permanent
       ),
       Input.Keyboard,
-      # TODO add timeout value here
       Input.TimeTicker,
       TwitchyPoison
     ]

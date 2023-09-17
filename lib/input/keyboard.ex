@@ -25,7 +25,10 @@ defmodule Input.Keyboard do
     {:noreply, state}
   end
 
-  def handle_info(_, state), do: state
+  def handle_info(_, state) do
+    IO.puts("handling!!!")
+    state
+  end
 
   @impl true
   def handle_call(:quit, _from, state) do
@@ -41,7 +44,7 @@ defmodule Input.Keyboard do
   defp report(key) do
     case key do
       "t" -> TwitchyPoison.tick()
-      "p" -> TwitchyPoison.progress()
+      "r" -> TwitchyPoison.refresh()
       _ -> nil
     end
     key
