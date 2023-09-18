@@ -13,7 +13,7 @@ defmodule TwitchyPoison.Supervisor do
       ),
       Input.Keyboard,
       Input.TimeTicker,
-      TwitchyPoison
+      Hub,
     ]
   end
 

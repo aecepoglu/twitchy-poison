@@ -34,11 +34,10 @@ defmodule AlarmTest do
     assert Alarm.add(existing, a) == [x1, x2, a, x3]
   end
 
-  test "add() ignore if the same exists" do
-    existing = [
-      %Alarm{id: "some id", val: 13, snooze: 17, label: "old label"}
-    ]
-    right = Alarm.add(existing, %Alarm{id: "some id", val: 20, snooze: 23, label: "new label"})
-    assert existing == right
+  test "add() overwrites if the same exists" do
+    old = [ %Alarm{id: "some id", val: 13, snooze: 17, label: "old label"} ]
+    new = %Alarm{id: "some id", val: 20, snooze: 23, label: "new label"}
+    right = Alarm.add(old, new)
+    assert [new] == right
   end
 end

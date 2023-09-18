@@ -41,7 +41,6 @@ defmodule TrendTest do
     right =
       Trend.make(5)
       |> Trend.add(win)
-      |> IO.inspect
       |> Trend.to_list()
 
     assert [-1, -1, -1, -1, -1] == right

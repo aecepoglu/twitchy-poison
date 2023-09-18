@@ -43,8 +43,10 @@ defmodule Input.Keyboard do
 
   defp report(key) do
     case key do
-      "t" -> TwitchyPoison.tick()
-      "r" -> TwitchyPoison.refresh()
+      "t" -> Hub.tick()
+      "r" -> Hub.refresh()
+      "1" -> Hub.action_1()
+      "2" -> Hub.action_2()
       _ -> nil
     end
     key

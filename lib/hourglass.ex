@@ -5,6 +5,8 @@ defmodule CurWin do
             broke: 0,
             mode: :work
 
+  def id(%CurWin{mode: m, done: d}), do: {m, d}
+
   def make(duration) do
     %__MODULE__{dur: duration}
   end
@@ -44,6 +46,8 @@ defmodule CurWin do
                    _ -> "?"
     end
   end
+
+  def idle?(x), do: x.val == 0
 end
 
 defmodule Trend do
@@ -81,6 +85,10 @@ defmodule Trend do
     |> Enum.map(fn k -> @bloks[ min(max(k + 1, 0), 9) ] end)
     |> Enum.join("")
   end
+
+  def id(past) do
+    CircBuf.count_while(past, & &1 == 0)
+  end
 end
 
 defmodule Hourglass do
@@ -97,9 +105,11 @@ defmodule Hourglass do
     #|> create_idle_notifications()
   end
 
-  def alerts({past, _}) do
-    if Trend.idle_too_long?(past) do
-      [Alarm.make_now(:countdown, 0, "split your task")]
+  def alerts({past, now}) do
+    if Trend.idle_too_long?(past) && CurWin.idle?(now) do
+      a = Alarm.make_now(:countdown, 15, "split your task")
+      |> Alarm.id("idle")
+      [a]
     else
       []
     end

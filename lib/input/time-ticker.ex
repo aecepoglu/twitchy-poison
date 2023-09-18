@@ -12,7 +12,7 @@ defmodule Input.TimeTicker do
   end
 
   def handle_info(:timeout, nil=state) do
-    TwitchyPoison.tick()
+    Hub.tick()
     # GenServer.cast(:kbd_listener, {:keypress, "a"})
     {:noreply, state, @timeout}
   end

@@ -5,6 +5,8 @@ defmodule Alarm do
     %__MODULE__{type: :countdown, val: seconds_later, snooze: snooze, label: label}
   end
 
+  def id(%Alarm{}=a, val), do: %{a | id: val}
+
   def make_now(:countdown, snooze, label) do
     %__MODULE__{
       type: :countdown,
@@ -14,14 +16,20 @@ defmodule Alarm do
     }
   end
 
-  def add(list, %Alarm{id: nil}=new), do: add_(list, new)
   def add(list, new) do
-    if Enum.any?(list, & &1.id == new.id) do
+    list
+    |> delete_matching(new)
+    |> add_(new)
+  end
+
+  defp delete_matching(list, %Alarm{id: id}) do
+    if id == nil do
       list
     else
-      add_(list, new)
+      Enum.filter(list, & &1.id != id)
     end
   end
+
   defp add_([%Alarm{val: v1}=h | t], %Alarm{val: v2}=new) when v2 < v1 do
     [new, h | t]
   end
@@ -44,4 +52,24 @@ defmodule Alarm do
 
   def string([]), do: "-"
   def string([h | _]), do: h.label
+
+  def popup([h | _]=ht) do
+    popup = if is_active?(h) do
+      action_1 = &Model.snooze/1
+      Popup.make(h, [action_1])
+    else
+      nil
+    end
+    {ht, popup}
+  end
+  def popup(x), do: {x, nil}
+
+  def snooze(%Alarm{}=x), do: %{x | val: x.snooze}
+  def snooze([h | t]), do: add(t, snooze(h))
+
+  def render_tmp(list), do:
+    list
+    |> Enum.map(& "#{&1.id}:#{&1.label}(#{&1.val}+#{&1.snooze})")
+    |> Enum.join(", ")
+    |> IO.puts
 end

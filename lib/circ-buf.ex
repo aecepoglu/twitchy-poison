@@ -17,4 +17,27 @@ defmodule CircBuf do
     1..n
     |> Enum.map(fn x -> cb.buf[Integer.mod(cb.idx - x, cb.size)] end)
   end
+
+  def count_while(%__MODULE__{}=cb, f) do
+    reduce_while(cb, 0, 0,
+      fn x, acc ->
+        if f.(x) do
+          {:continue, acc + 1}
+        else
+          false
+        end
+      end
+    )
+  end
+
+  defp reduce_while(cb, i, acc, _) when i == cb.size, do: acc
+  defp reduce_while(cb, i, acc, f) do
+    x = at(cb, i)
+    case f.(x, acc) do
+      {:continue, y} -> reduce_while(cb, i + 1, y, f)
+      _ -> acc
+    end
+  end
+
+  defp at(cb, i), do: cb.buf[Integer.mod(cb.idx - i, cb.size)]
 end

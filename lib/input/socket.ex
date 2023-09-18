@@ -61,15 +61,15 @@ defmodule Input.Socket do
     end
   end
   defp handle(["quit"]),        do: :init.stop()
-  defp handle(["done"]),        do: TwitchyPoison.task_done()
-  defp handle(["add " <> x]),   do: TwitchyPoison.task_add(x)
-  defp handle(["del"]),         do: TwitchyPoison.task_del()
-  defp handle(["rot"]),         do: TwitchyPoison.task_rot()
-  defp handle(["join"]),        do: TwitchyPoison.task_join()
-  defp handle(["disband"]),     do: TwitchyPoison.task_disband()
-  defp handle(["curtask"]),     do: TwitchyPoison.get_cur_task()
+  defp handle(["done"]),        do: Hub.task_done()
+  defp handle(["add " <> x]),   do: Hub.task_add(x)
+  defp handle(["del"]),         do: Hub.task_del()
+  defp handle(["rot"]),         do: Hub.task_rot()
+  defp handle(["join"]),        do: Hub.task_join()
+  defp handle(["disband"]),     do: Hub.task_disband()
+  defp handle(["curtask"]),     do: Hub.get_cur_task()
   defp handle(["hello"]),       do: {:ok, ["world"]}
-  defp handle(["puthead" | x]), do: TwitchyPoison.put_cur_task(x)
+  defp handle(["puthead" | x]), do: Hub.put_cur_task(x)
   defp handle([_]),             do: {:error, :unknown_command}
 
   defp read_line(socket) do

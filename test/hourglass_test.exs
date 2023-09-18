@@ -31,7 +31,13 @@ defmodule HourglassTest do
       setup_need_for_break()
       |> Hourglass.alerts
 
-    assert [%Alarm{label: "split your task", type: :countdown, snooze: 0, val: 0}] == right
+    alarm = %Alarm{
+      id: "idle",
+      label: "split your task",
+      type: :countdown,
+      snooze: 15,
+      val: 0}
+    assert [alarm] == right
   end
 
   test "taking a break rids of the need for break" do
@@ -42,22 +48,5 @@ defmodule HourglassTest do
       |> Hourglass.alerts
 
     assert [] == right
-  end
-
-
-  @tag :skip
-  test "popups 1" do
-    # popup shown suggesting a break
-    # snooze
-    # popup disappears
-    # alarm is re-queued
-  end
-
-  @tag :skip
-  test "popups 2" do
-    # popup shown suggesting a break
-    # OK
-    # popup disappears
-    # mode is switched to break
   end
 end
