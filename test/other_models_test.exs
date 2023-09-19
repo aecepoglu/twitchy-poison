@@ -1,14 +1,14 @@
 defmodule CurWinTest do
   use ExUnit.Case
 
-  test "CurWin.progress :work" do
+  test "CurWin.progress" do
     right =
       CurWin.make(7)
-      |> CurWin.progress(3)
-      |> CurWin.switch(:break)
-      |> CurWin.progress(5)
+      |> CurWin.work(3)
+      |> CurWin.tick(:break, 5)
+      |> elem(0)
 
-    assert %CurWin{mode: :break, done: 3, broke: 5, dur: 7} == right
+    assert %CurWin{val: 5, done: 3, broke: 5, dur: 7} == right
   end
 end
 
@@ -29,20 +29,18 @@ defmodule TrendTest do
     assert [107, 106, 105, 104, 103] == right
   end
 
-  test "Trend.add mostly work adds break if currently on break" do
+  test "if mostly did work, then Trend will show it" do
     win =
       CurWin.make(8)
-      |> CurWin.tick(4)
-      |> elem(0)
-      |> CurWin.progress(3)
-      |> CurWin.switch(:break)
-      |> CurWin.progress(2)
+      |> CurWin.tick(:work, 4) |> elem(0)
+      |> CurWin.work(3)
+      |> CurWin.tick(:break, 2) |> elem(0)
 
     right =
       Trend.make(5)
       |> Trend.add(win)
       |> Trend.to_list()
 
-    assert [-1, -1, -1, -1, -1] == right
+    assert [3, -1, -1, -1, -1] == right
   end
 end

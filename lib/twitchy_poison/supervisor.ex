@@ -12,8 +12,8 @@ defmodule TwitchyPoison.Supervisor do
         restart: :permanent
       ),
       Input.Keyboard,
-      Input.TimeTicker,
       Hub,
+      Chore,
     ]
   end
 

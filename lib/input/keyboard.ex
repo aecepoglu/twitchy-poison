@@ -47,6 +47,10 @@ defmodule Input.Keyboard do
       "r" -> Hub.refresh()
       "1" -> Hub.action_1()
       "2" -> Hub.action_2()
+      "b" -> Hub.start_break()
+      :arrow_up -> Hub.dir_move(:up)
+      :arrow_down -> Hub.dir_move(:down)
+      :escape -> Hub.escape()
       _ -> nil
     end
     key

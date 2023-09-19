@@ -1,11 +1,11 @@
 defmodule CurWin do
-  defstruct dur: 8,
-            val: 0,
-            done: 0,
-            broke: 0,
-            mode: :work
+  defstruct [dur: 8,
+             val: 0,
+             done: 0,
+             broke: 0,
+            ]
 
-  def id(%CurWin{mode: m, done: d}), do: {m, d}
+  #def id(%CurWin{done: d}), do: {m, d}
 
   def make(duration) do
     %__MODULE__{dur: duration}
@@ -18,50 +18,45 @@ defmodule CurWin do
     {%{me | val: v}, carry |> Enum.reverse}
   end
 
-  def tick(%__MODULE__{} = x, d_val \\ 1) do
-    {_, _} = tick_(%{x | val: x.val + d_val}, [])
+
+  def tick(%__MODULE__{} = x, mode, d_val \\ 1) when is_atom(mode) do
+    d_broke = if mode != :work do d_val else 0 end
+    {_, _} = tick_(
+      %{x |
+        val: x.val + d_val,
+        broke: x.broke + d_broke,
+        },
+      [])
   end
 
-  def progress(%__MODULE__{} = x, d_val) do
-    k =
-      case x.mode do
-        :work -> :done
-        _     -> :broke
-      end
+  def work(%__MODULE__{} = x, d_val), do: %{x | done: x.done + d_val}
 
-    %{x | k => Map.fetch!(x, k) + d_val}
-  end
-
-  def switch(%__MODULE__{} = x, to) when to in [:work, :break] do
-    %{x | mode: to}
-  end
   def string(%CurWin{}=x) do
-    case {x.mode, x.val, x.dur} do
-      {:break, _, _} -> "◬"
-      {_     , 0, 5} -> "○"
-      {_     , 1, 5} -> "◔"
-      {_     , 2, 5} -> "◑"
-      {_     , 3, 5} -> "◕"
-      {_     , 4, 5} -> "●"
-                   _ -> "?"
+    case {x.val, x.dur} do
+      {0, 5} -> "○"
+      {1, 5} -> "◔"
+      {2, 5} -> "◑"
+      {3, 5} -> "◕"
+      {4, 5} -> "●"
+           _ -> "?"
     end
   end
 
-  def idle?(x), do: x.val == 0
+  def idle?(x), do: x.done == 0
 end
 
 defmodule Trend do
-  @bloks ["B", " ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"] |> Enum.with_index(fn x, i -> {i, x} end) |> Map.new()
+  @bloks ["▀", " ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+    |> Enum.with_index(fn x, i -> {i, x} end)
+    |> Map.new()
 
   def make(len) do
     CircBuf.make(len, -1)
   end
 
-  def add(trend, %CurWin{mode: :break}) do
-    CircBuf.add(trend, -1)
-  end
-  def add(trend, %CurWin{done: x}) do
-    CircBuf.add(trend, x)
+  def add(trend, %CurWin{done: d, broke: b}) do
+    k = if d >= b do d else -1 end
+    CircBuf.add(trend, k)
   end
 
   def idle_too_long?(trend) do
@@ -84,6 +79,7 @@ defmodule Trend do
     CircBuf.take(x, n)
     |> Enum.map(fn k -> @bloks[ min(max(k + 1, 0), 9) ] end)
     |> Enum.join("")
+    |> String.reverse
   end
 
   def id(past) do
@@ -94,15 +90,13 @@ end
 defmodule Hourglass do
   def make(opts \\ []) do
     duration = Keyword.get(opts, :duration, 5)
-    trend_bufsize = Keyword.get(opts, :trend, 5)
+    trend_bufsize = Keyword.get(opts, :trend, 180)
     {Trend.make(trend_bufsize), CurWin.make(duration)}
   end
 
-  def tick(model) do
+  def tick(model, mode) do
     model
-    |> tick_up
-    #|> decr_upcoming
-    #|> create_idle_notifications()
+    |> tick_up(mode)
   end
 
   def alerts({past, now}) do
@@ -115,45 +109,25 @@ defmodule Hourglass do
     end
   end
 
-  def switch_mode({past, now}, mode) do
-    {past, CurWin.switch(now, mode)}
-  end
-
-  def progress({past, now}, dv), do: {past, CurWin.progress(now, dv)}
+  def progress({past, now}, dv), do: {past, CurWin.work(now, dv)}
 
   def remove_plan(model), do: model
 
-  defp tick_up({past, %CurWin{} = x}) do
-    {x_, carry} = CurWin.tick(x)
+  defp tick_up({past, %CurWin{} = now}, mode) do
+    {now_, carry} = CurWin.tick(now, mode)
     past_ = Enum.reduce(carry, past, fn a, b -> Trend.add(b, a) end)
-    {past_, x_}
+    {past_, now_}
   end
 
-  #def add_alarm({past, now, future}, new), do: {past, now, [new | future]}
-  #def list_alarms({_, _, alarms}) do
-  #  alarms
-  #  |> Enum.filter(&Alarm.is_active?/1)
-  #end
-  #defp decr_upcoming({past, win, alarms}) do
-  #  alarms_ = Alarm.ticks(alarms)
-  #  {past, win, alarms_}
-  #end
-  #defp create_idle_notifications({past, win, alarms}) do
-  #
-  #  {past, win}
-  #end
-
-    #future_ = Alarm.string(future)
-
-  def string({past, now}) do
-    past_ = Trend.string(past, 5)
+  def string({past, now}, {width, _}) do
+    past_ = Trend.string(past, width - 3)
     now_ = CurWin.string(now)
     "#{past_} #{now_}"
   end
 
-  def render(x) do
+  def render(x, size) do
     import IO.ANSI
-    cursor(1, 1) <> clear_line() <> string(x)
+    cursor(1, 1) <> clear_line() <> string(x, size)
     |> IO.write
   end
 end

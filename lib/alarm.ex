@@ -16,17 +16,11 @@ defmodule Alarm do
     }
   end
 
+  def add(list, new) when new.id == nil, do: add_(list, new)
   def add(list, new) do
-    list
-    |> delete_matching(new)
-    |> add_(new)
-  end
-
-  defp delete_matching(list, %Alarm{id: id}) do
-    if id == nil do
-      list
-    else
-      Enum.filter(list, & &1.id != id)
+    case Enum.split_with(list, & &1.id == new.id) do
+      {[h|_], _} when h.val >= new.val -> list
+      {_    , rest}                    -> add_(rest, new)
     end
   end
 
@@ -56,7 +50,7 @@ defmodule Alarm do
   def popup([h | _]=ht) do
     popup = if is_active?(h) do
       action_1 = &Model.snooze/1
-      Popup.make(h, [action_1])
+      Popup.make(h, [{"snooze", action_1}])
     else
       nil
     end
@@ -67,7 +61,7 @@ defmodule Alarm do
   def snooze(%Alarm{}=x), do: %{x | val: x.snooze}
   def snooze([h | t]), do: add(t, snooze(h))
 
-  def render_tmp(list), do:
+  def render_tmp(list, _size), do:
     list
     |> Enum.map(& "#{&1.id}:#{&1.label}(#{&1.val}+#{&1.snooze})")
     |> Enum.join(", ")

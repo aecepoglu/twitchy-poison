@@ -7,13 +7,10 @@ defmodule Popup do
   }
 
   # TODO this function is a bit too long for my liking
-  def render(popup) do
-    {:ok, width} = :io.columns()
-    {:ok, height} = :io.rows()
+  def render(popup, {width, height}) do
     p_width = 80
-
     actions = popup.actions
-    |> Enum.with_index(fn _, i -> "(#{i + 1}. action)" end) #TODO button label
+    |> Enum.with_index(fn {name, _}, i -> "(#{i + 1}. #{name})" end)
     |> Enum.join(" ")
 
     body = [
@@ -47,7 +44,7 @@ defmodule Popup do
   end
 
   # TODO this can be entirely dynamic
-  def act(%Popup{actions: [f]}, :action_1, model) do
+  def act(%Popup{actions: [{_, f}]}, :action_1, model) do
     f.(model)
   end
 end

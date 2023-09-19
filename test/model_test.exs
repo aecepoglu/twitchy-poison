@@ -3,7 +3,7 @@ defmodule ModelTest do
 
   test "countdowns create a popup when they're ready" do
     m = %{Model.make() | alarms: [Alarm.make_now(:countdown, 10, "an alarm")]}
-    |> Model.update(:tick)
+    |> Model.update(:tick_minute)
     assert match?(%Popup{ label: "an alarm", actions: [_] }, m.popup)
   end
 
@@ -11,7 +11,7 @@ defmodule ModelTest do
     a = Alarm.make_now(:countdown, 10, "an alarm")
     b = Alarm.make_now(:countdown, 7, "the second alarm")
     m = %{Model.make() | alarms: [a, b]}
-    |> Model.update(:tick)
+    |> Model.update(:tick_minute)
     |> Model.update(:action_1)
 
     assert match?(%Popup{ label: "the second alarm", actions: [_]}, m.popup)

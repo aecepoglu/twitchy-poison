@@ -70,15 +70,27 @@ defmodule Input.Socket do
   defp handle(["curtask"]),     do: Hub.get_cur_task()
   defp handle(["hello"]),       do: {:ok, ["world"]}
   defp handle(["puthead" | x]), do: Hub.put_cur_task(x)
+  defp handle(["putchores" | x]), do: Hub.put_chores(x)
   defp handle([_]),             do: {:error, :unknown_command}
 
   defp read_line(socket) do
     :gen_tcp.recv(socket, 0)
   end
 
+  defp respond({:error, :closed}, _) do
+    Process.sleep(100)
+    exit(:shutdown) # TODO causes inconsistency in returns
+  end
+  defp respond({:error, :unknown_command}, socket) do
+    :gen_tcp.send(socket, "unknown cmd. Try incr or decr\n")
+  end
+  defp respond({:error, err}, socket) do
+    :gen_tcp.send(socket, "err\n")
+    exit(err)
+  end
   defp respond({:ok, :command, _}, socket) do
+    respond({:error, :closed}, socket)
     # respond({:ok, :question, ["ok."]}, socket)
-    respond({:error, :closed}, socket) #TODO stop hiding this in here
   end
   defp respond({:ok, :question, []}, socket), do: respond({:ok, :question, ["(no lines in response)"]}, socket)
   defp respond({:ok, :question, reply}, socket) do
@@ -86,16 +98,5 @@ defmodule Input.Socket do
     |> Enum.map(& &1 <> "\n")
     |> Enum.join
     :gen_tcp.send(socket, str)
-  end
-  defp respond({:error, :unknown_command}, socket) do
-    :gen_tcp.send(socket, "unknown cmd. Try incr or decr\n")
-  end
-  defp respond({:error, :closed}, _socket) do
-    Process.sleep(100)
-    exit(:shutdown)
-  end
-  defp respond({:error, err}, socket) do
-    :gen_tcp.send(socket, "err\n")
-    exit(err)
   end
 end

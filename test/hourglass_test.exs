@@ -3,8 +3,8 @@ defmodule HourglassTest do
 
   defp setup_need_for_break() do
     Hourglass.make(duration: 1, trend: 5)
-    |> Hourglass.tick()
-    |> Hourglass.tick()
+    |> Hourglass.tick(:work)
+    |> Hourglass.tick(:work)
   end
 
   test "make" do
@@ -17,9 +17,9 @@ defmodule HourglassTest do
     trend =
       Hourglass.make(duration: 1, trend: 5)
       |> Hourglass.progress(3)
-      |> Hourglass.tick()
+      |> Hourglass.tick(:work)
       |> Hourglass.progress(4)
-      |> Hourglass.tick()
+      |> Hourglass.tick(:work)
       |> elem(0)
       |> Trend.to_list()
 
@@ -40,11 +40,10 @@ defmodule HourglassTest do
     assert [alarm] == right
   end
 
-  test "taking a break rids of the need for break" do
+  test "having taken a break rids of the need for break" do
     right =
       setup_need_for_break()
-      |> Hourglass.switch_mode(:break)
-      |> Hourglass.tick
+      |> Hourglass.tick(:break)
       |> Hourglass.alerts
 
     assert [] == right
