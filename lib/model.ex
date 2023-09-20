@@ -21,9 +21,7 @@ defmodule Model do
     |> add_new_alerts
     |> set_popup(overwrite: false)
   end
-  def update(m, :tick_second) when m.mode == :break do
-    %{m | tmp: Break.tick(m.tmp)}
-  end
+  def update(m, :tick_second) when m.mode == :break, do: %{m | tmp: Break.tick(m.tmp)}
   def update(m, {:task_add, task}), do: %{m |
     hg: Hourglass.progress(m.hg, 1),
     todo: Todo.add(m.todo, %Todo{label: task}),
@@ -32,15 +30,10 @@ defmodule Model do
     hg: Hourglass.progress(m.hg, 3),
     todo: Todo.mark_done!(m.todo),
     }
-  def update(m, :task_disband), do: %Model{m |
-    todo: Todo.disband(m.todo),
-    }
-  def update(m, :task_rot), do: %Model{m |
-    todo: Todo.rot(m.todo),
-    }
-  def update(m, :task_join), do: %Model{m |
-    todo: Todo.join(m.todo),
-    }
+  def update(m, :task_disband), do: %Model{m | todo: Todo.disband(m.todo)}
+  def update(m, {:task_rot, mode}), do: %Model{m | todo: Todo.rot(m.todo, mode)}
+  def update(m, :task_join), do: %Model{m | todo: Todo.join(m.todo)}
+  def update(m, :task_join_eager), do: %Model{m | todo: Todo.join_eager(m.todo)}
   def update(m, :task_del), do: %Model{m |
     hg: Hourglass.progress(m.hg, 1),
     todo: Todo.del(m.todo),

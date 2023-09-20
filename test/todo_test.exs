@@ -54,6 +54,37 @@ defmodule TodoTest do
     ]
     assert right == expected
   end
+
+  test "join eagerly" do
+    created = empty()
+    |> add(%Todo{label: "one"})
+    |> add(%Todo{label: "two"})
+    |> add(%Todo{label: "three"})
+    |> join
+    |> join
+    |> add(%Todo{label: "four"})
+    |> add(%Todo{label: "five"})
+    |> add(%Todo{label: "six"})
+    |> join_eager
+    |> add(%Todo{label: "seven"})
+    |> add(%Todo{label: "eight"})
+    |> add(%Todo{label: "nine"})
+    |> join_eager
+    |> strings(40)
+
+    expected = [
+      "╭ [ ] nine",
+      "│ [ ] eight",
+      "╰ [ ] seven",
+      "╭ [ ] six",
+      "│ [ ] five",
+      "╰ [ ] four",
+      "╭ [ ] three",
+      "│ [ ] two",
+      "╰ [ ] one",
+    ]
+    assert expected == created
+  end
 end
 
 defmodule TodoParserTest do

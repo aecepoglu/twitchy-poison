@@ -2,6 +2,7 @@ defmodule Todo.Hook do
   def run!([]), do: nil
   def run!([{:todobqn, _key} | _]), do: nil
 end
+
 defmodule Todo.Parser do
   def parse(txt) do
     found = String.split(txt)
@@ -21,6 +22,7 @@ defmodule Todo.Parser do
   defp categorise("todobqn:" <> key), do: {:hook, {:todobqn, key}}
   defp categorise(x), do: {:label, x}
 end
+
 defmodule Todo do
   defstruct [
     :label,
@@ -30,24 +32,41 @@ defmodule Todo do
 
   def empty(), do: []
 
-  def rot([[hh | ht] | t]) , do: [(ht ++ [hh]) | t]
-  def rot([h | t]), do: t ++ [h]
+  def rot([h | t], :outside), do: t ++ [h]
+  def rot([[hh | ht] | t], _) , do: [(ht ++ [hh]) | t]
+
+  def swap([h1, h2 | t]), do: [h2, h1 | t]
 
   def disband([h | t]) when is_list(h), do: h ++ t
+  def disband(x), do: x
 
   def join([h1, h2 | t]), do: [join_(h1, h2) | t]
   def join(x), do: x
 
-  def add(list, x), do: [x | list]
+  def join_eager([]), do: []
+  def join_eager([h]), do: [h]
+  def join_eager([h1, h2 | t]) when is_list(h2), do: [h1, h2 | t]
+  def join_eager([h1, h2 | t]) when is_list(h1), do: join_eager([(h1 ++ [h2]) | t])
+  def join_eager([h1, h2 | t])                 , do: join_eager([[h1, h2] | t])
+
+  def add(list, x), do: add(list, x, :outside)
+  def add([h | t], x, :inside) when is_list(h), do: [[x | h] | t]
+  def add([h | t], x, :inside),                 do: [[x, h] | t]
+  def add(ht, x, :outside), do: [x | ht]
+
+  def pop([[hh | ht] | t]), do: [hh | [ht | t]]
+  def pop(x), do: x
 
   def del([[_, hh | ht] | t]), do: [[hh | ht] | t]
   def del([_ | t]), do: t
+  def del([]), do: []
 
   def mark_done!([h | t]) when is_list(h) , do: [mark_done!(h) | t]
   def mark_done!([h | t]) do
     Todo.Hook.run!(h.hook)
     [%{h | done?: !h.done?} | t] |> Enum.sort(& (!&1) && &2)
   end
+  def mark_done!([]), do: []
 
   defp join_(a, b), do: enlist(a) ++ enlist(b)
 

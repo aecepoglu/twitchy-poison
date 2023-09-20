@@ -64,8 +64,10 @@ defmodule Input.Socket do
   defp handle(["done"]),        do: Hub.task_done()
   defp handle(["add " <> x]),   do: Hub.task_add(x)
   defp handle(["del"]),         do: Hub.task_del()
-  defp handle(["rot"]),         do: Hub.task_rot()
+  defp handle(["rot in"]),      do: Hub.task_rot(:inside)
+  defp handle(["rot out"]),     do: Hub.task_rot(:outside)
   defp handle(["join"]),        do: Hub.task_join()
+  defp handle(["join eager"]),  do: Hub.task_join_eager()
   defp handle(["disband"]),     do: Hub.task_disband()
   defp handle(["curtask"]),     do: Hub.get_cur_task()
   defp handle(["hello"]),       do: {:ok, ["world"]}
