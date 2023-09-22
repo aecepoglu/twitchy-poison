@@ -33,11 +33,11 @@ defmodule CurWin do
 
   def string(%CurWin{}=x) do
     case {x.val, x.dur} do
-      {0, 5} -> "○"
-      {1, 5} -> "◔"
-      {2, 5} -> "◑"
-      {3, 5} -> "◕"
-      {4, 5} -> "●"
+      {0, 4} -> "○"
+      {1, 4} -> "◔"
+      {2, 4} -> "◑"
+      {3, 4} -> "◕"
+      {4, 4} -> "●"
            _ -> "?"
     end
   end
@@ -89,7 +89,7 @@ end
 
 defmodule Hourglass do
   def make(opts \\ []) do
-    duration = Keyword.get(opts, :duration, 5)
+    duration = Keyword.get(opts, :duration, 4)
     trend_bufsize = Keyword.get(opts, :trend, 180)
     {Trend.make(trend_bufsize), CurWin.make(duration)}
   end

@@ -49,10 +49,13 @@ defmodule Todo do
   def join_eager([h1, h2 | t]) when is_list(h1), do: join_eager([(h1 ++ [h2]) | t])
   def join_eager([h1, h2 | t])                 , do: join_eager([[h1, h2] | t])
 
-  def add(list, x), do: add(list, x, :outside)
-  def add([h | t], x, :inside) when is_list(h), do: [[x | h] | t]
-  def add([h | t], x, :inside),                 do: [[x, h] | t]
-  def add(ht, x, :outside), do: [x | ht]
+  def add([h | t]                    , x, :push_in) when is_list(h), do: [[x | h] | t]
+  def add([h | t]                    , x, :push_in),                 do: [[x, h] | t]
+  def add(ht                         , x, :push_out), do: [x | ht]
+  def add([h | t]                    , x, :last) when is_list(h), do: [add(h, x, :last) | t]
+  def add([%Todo{done?: true}|_]=list, x, :last), do: [x | list]
+  def add([h | t]                    , x, :last), do: [h | add(t, x, :last)]
+  def add([]                         , x, :last), do: [x]
 
   def pop([[hh | ht] | t]), do: [hh | [ht | t]]
   def pop(x), do: x
@@ -61,11 +64,8 @@ defmodule Todo do
   def del([_ | t]), do: t
   def del([]), do: []
 
+  def mark_done!([%Todo{done?: false}=h | t]), do: t ++ [%{h | done?: true}]
   def mark_done!([h | t]) when is_list(h) , do: [mark_done!(h) | t]
-  def mark_done!([h | t]) do
-    Todo.Hook.run!(h.hook)
-    [%{h | done?: !h.done?} | t] |> Enum.sort(& (!&1) && &2)
-  end
   def mark_done!([]), do: []
 
   defp join_(a, b), do: enlist(a) ++ enlist(b)
@@ -100,10 +100,9 @@ defmodule Todo do
   end
 
   defp str(%Todo{done?: d, label: l}=t, width, color: has_colors?) do
-    [hd | tl] = fold(l, width - 6, [])
-    pre = "[#{bullet_to_str(t)}] "
-    hd_ = pre <> hd
-    tl_ = tl |> Enum.map(& "    " <> &1)
+    [hd | tl] = fold(l, width - 4, []) # 2 (decor) + 2 (bullet) = 4
+    hd_ = bullet_to_str(t) <> " " <> hd
+    tl_ = tl |> Enum.map(& "  " <> &1)
     lines = [hd_ | tl_]
     if has_colors? do
       color(lines, d)
@@ -147,9 +146,9 @@ defmodule Todo do
   end
   defp serialise([]), do: []
 
-  defp bullet_to_str(%Todo{done?: true}), do: "x"
-  defp bullet_to_str(%Todo{done?: false, hook: []}), do: " "
-  defp bullet_to_str(%Todo{done?: false, hook: _}), do: "!"
+  defp bullet_to_str(%Todo{done?: true}), do: "●"
+  defp bullet_to_str(%Todo{done?: false, hook: []}), do: "○"
+  defp bullet_to_str(%Todo{done?: false, hook: _}), do: "◬"
 
   def deserialise(lines) when is_list(lines), do: Enum.map(lines, &deserialise/1)
   def deserialise(txt) do

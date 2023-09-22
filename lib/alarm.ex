@@ -1,3 +1,4 @@
+
 defmodule Alarm do
   defstruct [:type, :val, :snooze, :label, :id]
 
@@ -15,6 +16,9 @@ defmodule Alarm do
       label: label,
     }
   end
+
+  def delete(list, %Alarm{}=elem), do: Enum.filter(list, & &1 != elem)
+  def delete(list, id), do: Enum.filter(list, & &1.id == id)
 
   def add(list, new) when new.id == nil, do: add_(list, new)
   def add(list, new) do
@@ -48,9 +52,14 @@ defmodule Alarm do
   def string([h | _]), do: h.label
 
   def popup([h | _]=ht) do
+   alias Alarm.Actions, as: Actions
     popup = if is_active?(h) do
-      action_1 = &Model.snooze/1
-      Popup.make(h, [{"snooze", action_1}])
+     actions = [
+       {"snooze", [&Actions.unset_popup/1, &Actions.snooze/1, &Model.set_popup/1]},
+       {"delete", [&Actions.unset_popup/1, Actions.delete(h)]},
+       {"close", [&Actions.unset_popup/1]},
+     ]
+      Popup.make(h, actions: actions)
     else
       nil
     end
@@ -66,4 +75,15 @@ defmodule Alarm do
     |> Enum.map(& "#{&1.id}:#{&1.label}(#{&1.val}+#{&1.snooze})")
     |> Enum.join(", ")
     |> IO.puts
+end
+
+defmodule Alarm.Actions do
+  # these will turn out to belong elsewhere, better
+  def unset_popup(%Model{}=m), do: %{m | popup: nil}
+  def snooze(%Model{}=m), do: %{m | alarms: Alarm.snooze(m.alarms)}
+  def delete(%Alarm{}=elem) do
+    fn %Model{}=m ->
+      %{m | alarms: Alarm.delete(m.alarms, elem)}
+    end
+  end
 end

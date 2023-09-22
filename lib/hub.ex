@@ -31,7 +31,7 @@ defmodule Hub do
   def handle_info(:tick_second, state), do: {:noreply, state}
 
   def tick(), do: GenServer.cast(:hub, :tick_minute)
-  def task_add(task), do: GenServer.cast(:hub, {:task_add, task})
+  def task_add(task, pos), do: GenServer.cast(:hub, {:task_add, task, pos})
   def task_done(), do: GenServer.cast(:hub, :task_done)
   def task_disband(), do: GenServer.cast(:hub, :task_disband)
   def task_rot(x), do: GenServer.cast(:hub, {:task_rot, x})

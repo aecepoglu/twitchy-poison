@@ -10,7 +10,7 @@ defmodule Model do
 
   def make(), do: %__MODULE__{
       hg: Hourglass.make(),
-      todo: Todo.empty() |> Todo.add(%Todo{label: "testing 1 2 3"}),
+      todo: Todo.empty(),
       size: get_win_size(),
     }
 
@@ -22,9 +22,9 @@ defmodule Model do
     |> set_popup(overwrite: false)
   end
   def update(m, :tick_second) when m.mode == :break, do: %{m | tmp: Break.tick(m.tmp)}
-  def update(m, {:task_add, task}), do: %{m |
+  def update(m, {:task_add, task, pos}), do: %{m |
     hg: Hourglass.progress(m.hg, 1),
-    todo: Todo.add(m.todo, %Todo{label: task}),
+    todo: Todo.add(m.todo, %Todo{label: task}, pos),
     }
   def update(m, :task_done), do: %{m |
     hg: Hourglass.progress(m.hg, 3),
@@ -42,8 +42,8 @@ defmodule Model do
     hg: Hourglass.progress(m.hg, 1),
     todo: Todo.upsert_head(m.todo, Todo.deserialise(x)),
     }
-  def update(m, :action_1), do: Popup.act(m.popup, :action_1, m)
-  def update(m, :action_2), do: %{m | popup: nil}
+  def update(m, action) when action in [:action_1, :action_2, :escape]
+                        and m.popup != nil, do: Popup.act(m.popup, action, m)
   def update(m, :refresh), do: %{m | size: get_win_size()}
   def update(m, {:dir, :up}) when m.mode == :breakprep, do: %{m | tmp: Break.make_longer(m.tmp)}
   def update(m, {:dir, :down}) when m.mode == :breakprep, do: %{m | tmp: Break.make_shorter(m.tmp)}
@@ -72,6 +72,7 @@ defmodule Model do
     {alarms, popup} = Alarm.popup(m.alarms)
     %Model{m | popup: popup, alarms: alarms}
   end
+  def set_popup(%Model{}=m), do: set_popup(m, overwrite: false)
 
   def snooze(%Model{}=m) do
     %{m | alarms: Alarm.snooze(m.alarms)}
@@ -84,6 +85,18 @@ defmodule Model do
     {width, height}
   end
 
+  def render(%Model{size: {width, height}}) when width < 30 and height < 3 do
+    IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
+    IO.puts("#{width}x#{height} too small")
+  end
+  def render(%Model{mode: :debug}=m) do
+    IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
+    {width, height} = m.size
+    IO.puts("size #{width}x#{height}\n\r")
+    IO.puts("alarms ")
+    Alarm.render_tmp(m.alarms, m.size)
+    IO.puts("\n\r")
+  end
   def render(%Model{mode: :breakprep}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
     Break.render(m.tmp, :breakprep, m.size)
@@ -95,8 +108,6 @@ defmodule Model do
   def render(%Model{mode: :work}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
     Hourglass.render(m.hg, m.size)
-    Alarm.render_tmp(m.alarms, m.size)
-    IO.puts("\n\r")
     Todo.render(m.todo, m.size)
     if m.popup != nil do
       Popup.render(m.popup, m.size)

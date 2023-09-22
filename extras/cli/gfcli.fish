@@ -1,7 +1,7 @@
 #!/bin/env fish
 
-function task_add
-	echo add $argv | socat /tmp/goldfish.sock -
+function task_foo
+	echo task $argv | socat /tmp/goldfish.sock -
 end
 function task_del
 	echo del | socat /tmp/goldfish.sock -
@@ -31,8 +31,12 @@ case "puthead"
 	multiline puthead | socat /tmp/goldfish.sock -
 case "dump"
 	task_dump
-case "add"
-	task_add $argv[2..]
+case "pushin"
+	task_foo pushin $argv[2..]
+case "pushout"
+	task_foo pushout $argv[2..]
+case "insert"
+	task_foo insert $argv[2..]
 case "del"
 	task_del
 case "join"
