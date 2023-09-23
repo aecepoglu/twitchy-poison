@@ -1,9 +1,9 @@
 defmodule Break do
   defstruct [t: 60, label: "untitled break", chore: nil]
 
-  def make(label), do: make(label, Chore.pop())
-  def make(label, chore) do
-    %__MODULE__{label: label, chore: chore}
+  def make(suggested_duration, label), do: make(suggested_duration, label, Chore.pop())
+  def make(suggested_duration, label, chore) do
+    %__MODULE__{label: label, chore: chore, t: max(suggested_duration, 60)}
   end
 
   def make_longer(%__MODULE__{t: t}=s), do: %{s | t: t + 60}

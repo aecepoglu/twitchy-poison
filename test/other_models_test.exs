@@ -14,22 +14,44 @@ end
 
 defmodule TrendTest do
   use ExUnit.Case
+  @idle {0, 8}
 
   test "Trend.make initial state" do
-    assert [-1, -1, -1] == Trend.make(3) |> Trend.to_list()
+    assert [@idle, @idle, @idle] == Trend.make(3) |> Trend.to_list()
   end
 
-  test "Trend.add keeps last N" do
-    right =
-      100..107
-      |> Enum.map(fn x -> %CurWin{done: x} end)
-      |> Enum.reduce(Trend.make(5), fn x, a -> Trend.add(a, x) end)
-      |> Trend.to_list()
-
-    assert [107, 106, 105, 104, 103] == right
+  test "Trend.add sanitises the input" do
+    elems = Trend.make(3)
+    |> Trend.add(%CurWin{done: 13})
+    |> Trend.to_list
+    assert elems == [{8, 0}, @idle, @idle]
   end
 
-  test "if mostly did work, then Trend will show it" do
+  test "Trend.add rolls around, keeping the last $size" do
+    got = Trend.make(3)
+    |> Trend.add(%CurWin{done: 1, broke: 3})
+    |> Trend.add(%CurWin{done: 2, broke: 4})
+    |> Trend.add(%CurWin{done: 3, broke: 1})
+    |> Trend.add(%CurWin{done: 4, broke: 0})
+    |> Trend.add(%CurWin{done: 5, broke: 3})
+    |> Trend.to_list
+
+    assert got == [{5, 3}, {4, 0}, {3, 1}]
+  end
+
+  test "Trend stats give sums of each" do
+    got = Trend.make(3)
+    |> Trend.add(%CurWin{done: 1, broke: 3})
+    |> Trend.add(%CurWin{done: 2, broke: 4})
+    |> Trend.add(%CurWin{done: 3, broke: 1})
+    |> Trend.add(%CurWin{done: 4, broke: 0})
+    |> Trend.add(%CurWin{done: 5, broke: 3})
+    |> Trend.stats
+
+    assert got == {12, 4}
+  end
+
+  test "stores work and the breaks" do
     win =
       CurWin.make(8)
       |> CurWin.tick(:work, 4) |> elem(0)
@@ -41,6 +63,17 @@ defmodule TrendTest do
       |> Trend.add(win)
       |> Trend.to_list()
 
-    assert [3, -1, -1, -1, -1] == right
+    assert [{3, 2}, @idle, @idle, @idle, @idle] == right
+  end
+end
+
+defmodule CircBufTest do
+  use ExUnit.Case
+
+  test "can list" do
+    elems = Enum.reduce(1..8, CircBuf.make(5, 0), fn x, cb -> CircBuf.add(cb, x) end)
+    |> CircBuf.to_list
+
+    assert elems == [8, 7, 6, 5, 4]
   end
 end

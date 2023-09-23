@@ -53,7 +53,7 @@ defmodule Model do
   def update(m, :start_break) when m.mode == :work, do:
     %{m |
       mode: :breakprep,
-      tmp: Break.make(Chore.pop())
+      tmp: Break.make(FlowState.suggest(m), Chore.pop())
       }
   def update(m, :start_break) when m.mode == :breakprep, do: %{m | mode: :break}
   def update(m, :start_break) when m.mode == :break, do: %{m | mode: :work}
@@ -112,5 +112,16 @@ defmodule Model do
     if m.popup != nil do
       Popup.render(m.popup, m.size)
     end
+  end
+end
+
+defmodule FlowState do
+  def suggest(%Model{}=m) do
+    {work, rest} = m.hg
+    |> Hourglass.past
+    |> Trend.stats
+
+    60 * (floor(work / 3) - rest)
+    |> max(0)
   end
 end

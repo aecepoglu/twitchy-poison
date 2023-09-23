@@ -22,8 +22,7 @@ defmodule HourglassTest do
       |> Hourglass.tick(:work)
       |> elem(0)
       |> Trend.to_list()
-
-    assert [4, 3, -1, -1, -1] == trend
+    assert [{4, 0}, {3, 0}, {0, 8}, {0, 8}, {0, 8}] == trend
   end
 
   test "staying idle too is a cause for an alarm" do
@@ -40,7 +39,7 @@ defmodule HourglassTest do
     assert [alarm] == right
   end
 
-  test "having taken a break rids of the need for break" do
+  test "having taken a break removes the need for break" do
     right =
       setup_need_for_break()
       |> Hourglass.tick(:break)

@@ -40,4 +40,12 @@ defmodule CircBuf do
   end
 
   defp at(cb, i), do: cb.buf[Integer.mod(cb.idx - i, cb.size)]
+
+  def to_list(%__MODULE__{}=cb) do
+    cb.buf
+    |> Map.to_list()
+    |> Enum.map(fn {k, v} -> {Integer.mod(cb.idx - k - 1, cb.size), v} end)
+    |> Enum.sort_by(& elem(&1, 0))
+    |> Enum.map(& elem(&1, 1))
+  end
 end

@@ -51,35 +51,40 @@ defmodule Trend do
     |> Map.new()
 
   def make(len) do
-    CircBuf.make(len, -1)
+    CircBuf.make(len, {0, 8})
   end
 
   def add(trend, %CurWin{done: d, broke: b}) do
-    k = if d >= b do d else -1 end
-    CircBuf.add(trend, k)
+    CircBuf.add(trend, {min(d, 8), b})
   end
 
   def idle_too_long?(trend) do
     trend
     |> CircBuf.take(2)
-    |> Enum.all?(fn x -> x == 0 end)
+    |> Enum.all?(fn {w, b} -> w + b == 0 end)
   end
 
   def worked_too_long?(trend) do
     trend
     |> CircBuf.take(5)
-    |> Enum.all?(fn x -> x > 0 end)
+    |> Enum.all?(fn {w, _} -> w > 0 end)
   end
 
   def to_list(x) do
-    CircBuf.take(x, x.size)
+    CircBuf.to_list(x)
   end
 
   def string(x, n) do
     CircBuf.take(x, n)
-    |> Enum.map(fn k -> @bloks[ min(max(k + 1, 0), 9) ] end)
+    |> Enum.map(fn {w, b} -> @bloks[ if b > 0 do 0 else w + 1 end ] end)
     |> Enum.join("")
     |> String.reverse
+  end
+
+  def stats(trend) do
+    trend
+    |> to_list()
+    |> Enum.reduce({0, 0}, fn {b, w}, {ba, wa} -> {ba + b, wa + w} end)
   end
 
   def id(past) do
@@ -93,6 +98,9 @@ defmodule Hourglass do
     trend_bufsize = Keyword.get(opts, :trend, 180)
     {Trend.make(trend_bufsize), CurWin.make(duration)}
   end
+
+  def past({x, _}), do: x
+  def now({_, x}), do: x
 
   def tick(model, mode) do
     model
