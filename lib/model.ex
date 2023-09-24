@@ -34,6 +34,7 @@ defmodule Model do
   def update(m, {:task_rot, mode}), do: %Model{m | todo: Todo.rot(m.todo, mode)}
   def update(m, :task_join), do: %Model{m | todo: Todo.join(m.todo)}
   def update(m, :task_join_eager), do: %Model{m | todo: Todo.join_eager(m.todo)}
+  def update(m, :task_pop), do: %Model{m | todo: Todo.pop(m.todo)}
   def update(m, :task_del), do: %Model{m |
     hg: Hourglass.progress(m.hg, 1),
     todo: Todo.del(m.todo),
@@ -42,12 +43,13 @@ defmodule Model do
     hg: Hourglass.progress(m.hg, 1),
     todo: Todo.upsert_head(m.todo, Todo.deserialise(x)),
     }
+  def update(m, :task_persist), do: %{m | todo: Todo.persist!(m.todo)}
   def update(m, action) when action in [:action_1, :action_2, :escape]
                         and m.popup != nil, do: Popup.act(m.popup, action, m)
   def update(m, :refresh), do: %{m | size: get_win_size()}
   def update(m, {:dir, :up}) when m.mode == :breakprep, do: %{m | tmp: Break.make_longer(m.tmp)}
   def update(m, {:dir, :down}) when m.mode == :breakprep, do: %{m | tmp: Break.make_shorter(m.tmp)}
-  def update(m, :escape) when m.mode == :breakprep, do: %{m | mode: :work, tmp: nil}
+  def update(m, :escape), do: %{m | mode: :work, tmp: nil}
   def update(m, {:dir, _}), do: m
 
   def update(m, :start_break) when m.mode == :work, do:
@@ -57,6 +59,8 @@ defmodule Model do
       }
   def update(m, :start_break) when m.mode == :breakprep, do: %{m | mode: :break}
   def update(m, :start_break) when m.mode == :break, do: %{m | mode: :work}
+
+  def update(m, :debug), do: %{m | mode: :debug}
 
   defp tick(m, :hg), do: %Model{m | hg: Hourglass.tick(m.hg, m.mode)}
   defp tick(m, :alarms), do: %Model{m | alarms: Alarm.ticks(m.alarms, 1)}
@@ -87,15 +91,16 @@ defmodule Model do
 
   def render(%Model{size: {width, height}}) when width < 30 and height < 3 do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
-    IO.puts("#{width}x#{height} too small")
+    IO.write("#{width}x#{height} too small")
   end
   def render(%Model{mode: :debug}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
+    IO.write("DEBUG\n\r")
     {width, height} = m.size
-    IO.puts("size #{width}x#{height}\n\r")
-    IO.puts("alarms ")
+    IO.write("size #{width}x#{height}\n\r")
+    IO.write("alarms ")
     Alarm.render_tmp(m.alarms, m.size)
-    IO.puts("\n\r")
+    IO.write("\n\r")
   end
   def render(%Model{mode: :breakprep}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
@@ -108,6 +113,7 @@ defmodule Model do
   def render(%Model{mode: :work}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
     Hourglass.render(m.hg, m.size)
+    IO.write("\n\r")
     Todo.render(m.todo, m.size)
     if m.popup != nil do
       Popup.render(m.popup, m.size)
@@ -117,10 +123,14 @@ end
 
 defmodule FlowState do
   def suggest(%Model{}=m) do
-    {work, rest} = m.hg
-    |> Hourglass.past
-    |> Trend.stats
-
+    Hourglass.past(m.hg)
+    |> suggest_break_len()
+  end
+  def need_break?(%CircBuf{}=past, %CurWin{}=now) do
+    (now.broke == 0) && (suggest_break_len(past) > 0)
+  end
+  def suggest_break_len(%CircBuf{}=past) do
+    {work, rest} = Trend.stats(past)
     60 * (floor(work / 3) - rest)
     |> max(0)
   end

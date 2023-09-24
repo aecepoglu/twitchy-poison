@@ -49,18 +49,19 @@ defmodule Todo do
   def join_eager([h1, h2 | t]) when is_list(h1), do: join_eager([(h1 ++ [h2]) | t])
   def join_eager([h1, h2 | t])                 , do: join_eager([[h1, h2] | t])
 
-  def add([h | t]                    , x, :push_in) when is_list(h), do: [[x | h] | t]
-  def add([h | t]                    , x, :push_in),                 do: [[x, h] | t]
-  def add(ht                         , x, :push_out), do: [x | ht]
+  def add([h | t]                    , x, :push) when is_list(h), do: [[x | h] | t]
+  def add(list                       , x, :push),                 do: [x | list]
   def add([h | t]                    , x, :last) when is_list(h), do: [add(h, x, :last) | t]
   def add([%Todo{done?: true}|_]=list, x, :last), do: [x | list]
   def add([h | t]                    , x, :last), do: [h | add(t, x, :last)]
   def add([]                         , x, :last), do: [x]
 
+  def pop([[h1, h2] | t]), do: [h1, h2 | t]
   def pop([[hh | ht] | t]), do: [hh | [ht | t]]
   def pop(x), do: x
 
-  def del([[_, hh | ht] | t]), do: [[hh | ht] | t]
+  def del([[_] | t]), do: t
+  def del([[_ | ht] | t]), do: [ht | t]
   def del([_ | t]), do: t
   def del([]), do: []
 
@@ -75,18 +76,19 @@ defmodule Todo do
 
   def strings(list, width, opts \\ [color: false]) do
     list
-    |> Enum.map(&strings_(&1, width, opts))
-    |> Enum.flat_map(&add_grp_decor/1)
+    |> Enum.flat_map(&lines_of_one(&1, width, opts))
   end
 
-  defp strings_(list, width, opts) do
-    list
-    |> enlist
-    |> Enum.flat_map(& str(&1, width, opts))
+  defp lines_of_one(%Todo{}=x, width, opts) do
+    str(x, width, opts)
+    |> add_grp_decor(false)
+  end
+  defp lines_of_one(list, width, opts) do
+    Enum.flat_map(list, &str(&1, width, opts))
+    |> add_grp_decor(true)
   end
 
-  defp add_grp_decor([line]), do: ["  " <> line]
-  defp add_grp_decor(lines) do
+  defp add_grp_decor(lines, true) do
     n = length(lines)
     Enum.with_index(lines, fn x, i ->
       b = case {i, n} do
@@ -97,6 +99,10 @@ defmodule Todo do
       end
       b <> x
     end)
+  end
+  defp add_grp_decor(lines, false) do
+    lines
+    |> Enum.map(&"  " <> &1)
   end
 
   defp str(%Todo{done?: d, label: l}=t, width, color: has_colors?) do
@@ -159,4 +165,10 @@ defmodule Todo do
     x = %Todo{} = struct!(Todo, Todo.Parser.parse(rest))
     %{x | done?: done}
   end
+
+  def persist!([%Todo{}=h | t]) do
+    External.TodoBqn.add(h.label)
+    t
+  end
+  def persist!([h | t]) when is_list(h), do: [persist!(h) | t]
 end

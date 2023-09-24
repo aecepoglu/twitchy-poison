@@ -23,8 +23,10 @@ define-command goldfish-send -docstring "send to goldfish" -params 1.. %{
 }
 declare-user-mode goldfish
 map -docstring 'Done'      global goldfish d ':goldfish-send done<ret>'
-map -docstring 'Add'       global goldfish a ':goldfish-send add '
+map -docstring 'Add (top)' global goldfish a ':goldfish-send push '
+map -docstring 'Add (btm)' global goldfish A ':goldfish-send insert '
 map -docstring 'Join'      global goldfish j ':goldfish-send join<ret>'
+map -docstring 'Pop'       global goldfish p ':goldfish-send pop<ret>'
 map -docstring 'Quit'      global goldfish Q ':goldfish-send quit<ret>'
 map -docstring 'Rotate O'  global goldfish R ':goldfish-send rot out<ret>'
 map -docstring 'Rotate I'  global goldfish r ':goldfish-send rot in<ret>'

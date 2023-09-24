@@ -6,7 +6,6 @@ defmodule CurWinTest do
       CurWin.make(7)
       |> CurWin.work(3)
       |> CurWin.tick(:break, 5)
-      |> elem(0)
 
     assert %CurWin{val: 5, done: 3, broke: 5, dur: 7} == right
   end
@@ -54,9 +53,9 @@ defmodule TrendTest do
   test "stores work and the breaks" do
     win =
       CurWin.make(8)
-      |> CurWin.tick(:work, 4) |> elem(0)
+      |> CurWin.tick(:work, 4)
       |> CurWin.work(3)
-      |> CurWin.tick(:break, 2) |> elem(0)
+      |> CurWin.tick(:break, 2)
 
     right =
       Trend.make(5)

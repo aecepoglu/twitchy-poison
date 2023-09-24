@@ -5,29 +5,20 @@ defmodule CurWin do
              broke: 0,
             ]
 
-  #def id(%CurWin{done: d}), do: {m, d}
-
   def make(duration) do
     %__MODULE__{dur: duration}
   end
 
-  defp tick_(%__MODULE__{val: v, dur: k} = me, carry) when v >= k do
-    tick_(%{me | val: v - k, done: 0}, [%{me | val: k} | carry])
-  end
-  defp tick_(%__MODULE__{val: v} = me, carry) do
-    {%{me | val: v}, carry |> Enum.reverse}
-  end
+  def fin?(%__MODULE__{val: v, dur: d}), do: v >= d
+  def reset(%__MODULE__{}=x), do:
+    %__MODULE__{x | val: 0, done: 0, broke: 0}
 
-
-  def tick(%__MODULE__{} = x, mode, d_val \\ 1) when is_atom(mode) do
-    d_broke = if mode != :work do d_val else 0 end
-    {_, _} = tick_(
-      %{x |
-        val: x.val + d_val,
-        broke: x.broke + d_broke,
-        },
-      [])
-  end
+  def tick(curwin, mode, d_val \\ 1)
+  def tick(%__MODULE__{val: v} = x, :work, d_val), do:
+    %__MODULE__{x | val: v + d_val}
+  def tick(%__MODULE__{broke: v} = x, :break, d_val), do:
+    %__MODULE__{x | broke: v + d_val,
+                    val: v + d_val}
 
   def work(%__MODULE__{} = x, d_val), do: %{x | done: x.done + d_val}
 
@@ -66,7 +57,7 @@ defmodule Trend do
 
   def worked_too_long?(trend) do
     trend
-    |> CircBuf.take(5)
+    |> CircBuf.take(10)
     |> Enum.all?(fn {w, _} -> w > 0 end)
   end
 
@@ -108,12 +99,14 @@ defmodule Hourglass do
   end
 
   def alerts({past, now}) do
-    if Trend.idle_too_long?(past) && CurWin.idle?(now) do
-      a = Alarm.make_now(:countdown, 15, "split your task")
-      |> Alarm.id("idle")
-      [a]
-    else
-      []
+    
+    # TODO [{now.done, now.broke} | Trend.take(past, 10)] |> analyse
+    cond do
+      Trend.idle_too_long?(past) && CurWin.idle?(now) ->
+        [Alarm.make("idle", label: "split your task")]
+      Trend.worked_too_long?(past) && now.broke == 0 ->
+        [Alarm.make("rest", label: "take a break")]
+      true -> []
     end
   end
 
@@ -122,9 +115,12 @@ defmodule Hourglass do
   def remove_plan(model), do: model
 
   defp tick_up({past, %CurWin{} = now}, mode) do
-    {now_, carry} = CurWin.tick(now, mode)
-    past_ = Enum.reduce(carry, past, fn a, b -> Trend.add(b, a) end)
-    {past_, now_}
+    x = CurWin.tick(now, mode)
+    if CurWin.fin?(x) do
+      {Trend.add(past, x), CurWin.reset(x)}
+    else
+      {past, x}
+    end
   end
 
   def string({past, now}, {width, _}) do

@@ -1,0 +1,9 @@
+me.shape: person
+shape: sequence_diagram
+
+me -> sd gtd.1
+sd gtd.1 -> todotxt.1: search tasks
+todotxt.1 -> sd gtd.1: update tasks with\n'gtd:XXX' tags
+sd gtd.1 -> Goldfish.1: add tasks
+me -> Goldfish.2: complete task
+Goldfish.2 -> todotxt.2: complete task

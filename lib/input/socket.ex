@@ -1,34 +1,32 @@
-defmodule Input.Socket.Request do
-  def new(), do: {:incomplete, []}
-
-  def grow({:incomplete, lines}, {:ok, "???\n"}) do
-    {:complete, :question, Enum.reverse(lines)}
-  end
-  def grow({:incomplete, lines}, {:ok, data}) do
-    {:incomplete, [String.trim_trailing(data) | lines]}
-  end
-  def grow({:incomplete, lines}, {:error, :closed}) do
-    {:complete, :command, Enum.reverse(lines)}
-  end
-  def grow(_, {:error,_}=err), do: err
-end
-
 defmodule Input.Socket do
   require Logger
-  alias Input.Socket.Request, as: Request
 
-  def accept(filepath) do
+  def listen(filepath, :filepath, rmfile: true) do
     if File.exists?(filepath) do
       File.rm!(filepath)
     end
-
-    opts =[:binary,
-           ifaddr: {:local, filepath},
-           packet: :line,
-           active: false,
-           reuseaddr: true]
+    opts = [:binary,
+            ifaddr: {:local, filepath},
+            packet: :line,
+            active: false,
+            reuseaddr: true
+            ]
     {:ok, socket} = :gen_tcp.listen(0, opts)
-    Logger.info("Accepting connections on #{filepath}")
+    accept_forever({:ok, socket})
+  end
+
+  def listen(port, :port) do
+    opts = [:binary,
+            packet: :line,
+            active: false,
+            reuseaddr: true
+            ]
+    {:ok, socket} = :gen_tcp.listen(port, opts)
+    accept_forever({:ok, socket})
+  end
+
+  def accept_forever({:ok, socket}) do
+    Logger.info("Accepting connections on TODO")
     loop_acceptor(socket)
   end
 
@@ -40,42 +38,55 @@ defmodule Input.Socket do
   end
 
   defp serve(socket) do
-    read_request(Request.new(), socket)
+    read_request([], socket)
     |> handle
     |> respond(socket)
     serve(socket)
   end
 
-  defp read_request({:incomplete, _}=req, sock) do
-    Request.grow(req, read_line(sock))
-    |> read_request(sock)
-  end
-  defp read_request({:complete, typ, r}, _), do: {:ok, typ, r}
-  defp read_request({:error, _}=err    , _), do: err
-
-  defp handle({:ok, typ, req}) do
-    case handle(req) do
-      {:error, _} = err -> err
-      {:ok, res} -> {:ok, typ, res}
-      :ok -> {:ok, typ, "no response"}
+  defp read_request(lines, sock) do
+    case read_line(sock) |> trim do
+      {:ok, "... " <> line} -> read_request([line | lines], sock)
+      {:ok, line}           -> {:ok, Enum.reverse([line | lines])}
+      err                   -> err
     end
   end
-  defp handle(["quit"]),          do: :init.stop()
-  defp handle(["done"]),          do: Hub.task_done()
-  defp handle(["pushout " <> x]), do: Hub.task_add(x, :push_out)
-  defp handle(["pushin " <> x]),  do: Hub.task_add(x, :push_in)
-  defp handle(["insert " <> x]),  do: Hub.task_add(x, :last)
-  defp handle(["del"]),           do: Hub.task_del()
-  defp handle(["rot in"]),        do: Hub.task_rot(:inside)
-  defp handle(["rot out"]),       do: Hub.task_rot(:outside)
-  defp handle(["join"]),          do: Hub.task_join()
-  defp handle(["join eager"]),    do: Hub.task_join_eager()
-  defp handle(["disband"]),       do: Hub.task_disband()
-  defp handle(["curtask"]),       do: Hub.get_cur_task()
-  defp handle(["hello"]),         do: {:ok, ["world"]}
-  defp handle(["puthead" | x]),   do: Hub.put_cur_task(x)
-  defp handle(["putchores" | x]), do: Hub.put_chores(x)
-  defp handle([_]),             do: {:error, :unknown_command}
+  defp trim({:ok, str}), do: {:ok, String.trim_trailing(str)}
+  defp trim(err),        do: err
+
+  defp handle({:ok, req}) do
+    case process(req) do
+      :ok -> {:ok, []}
+      x   -> x
+    end
+  end
+  defp handle({:error, _}=err),    do: err
+
+  defp process(["quit"]),          do: :init.stop()
+  defp process(["done"]),          do: Hub.task_done()
+  defp process(["push " <> x]),    do: Hub.task_add(x, :push)
+  defp process(["insert " <> x]),  do: Hub.task_add(x, :last)
+  defp process(["pop"]),           do: cast(:task_pop)
+  defp process(["del"]),           do: Hub.task_del()
+  defp process(["rot in"]),        do: Hub.task_rot(:inside)
+  defp process(["rot out"]),       do: Hub.task_rot(:outside)
+  defp process(["join"]),          do: Hub.task_join()
+  defp process(["join eager"]),    do: Hub.task_join_eager()
+  defp process(["disband"]),       do: Hub.task_disband()
+  defp process(["curtask"]),       do: Hub.get_cur_task()
+  defp process(["puthead" | x]),   do: Hub.put_cur_task(x)
+  defp process(["putchores" | x]), do: Hub.put_chores(x)
+  defp process(["task persist"]),  do: cast(:task_persist)
+  defp process(["debug"]),         do: cast(:debug)
+  defp process(["hello"]),         do: {:ok, ["world"]}
+  defp process(["sum" | nums]),    do: {:ok, [nums
+                                              |> Enum.map(&String.to_integer/1)
+                                              |> Enum.reduce(0, & &1 + &2)
+                                              |> to_string
+                                              ]}
+  defp process([_]),               do: {:error, :unknown_command}
+
+  defp cast(msg), do: GenServer.cast(:hub, msg)
 
   defp read_line(socket) do
     :gen_tcp.recv(socket, 0)
@@ -92,15 +103,9 @@ defmodule Input.Socket do
     :gen_tcp.send(socket, "err\n")
     exit(err)
   end
-  defp respond({:ok, :command, _}, socket) do
-    respond({:error, :closed}, socket)
-    # respond({:ok, :question, ["ok."]}, socket)
-  end
-  defp respond({:ok, :question, []}, socket), do: respond({:ok, :question, ["(no lines in response)"]}, socket)
-  defp respond({:ok, :question, reply}, socket) do
-    str = reply
-    |> Enum.map(& &1 <> "\n")
-    |> Enum.join
-    :gen_tcp.send(socket, str)
+  defp respond({:ok, []}, socket), do: respond({:ok, ["ok."]}, socket)
+  defp respond({:ok, reply}, socket) do
+    str = Enum.join(reply, "\n")
+    :gen_tcp.send(socket, str <> "\r\n")
   end
 end

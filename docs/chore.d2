@@ -1,0 +1,15 @@
+me.shape: person
+shape: sequence_diagram
+
+me -> Goldfish: start
+me -> sd chores.1: queue up next batch of chores
+sd chores.1 -> chores_txt.1: read
+sd chores.1 -> Goldfish.add_chore: add chores
+Goldfish.add_chore -> Chore: add
+me -> Goldfish.break: take a break
+Goldfish.break -> Chore: get
+me -> Goldfish.break: end break
+Goldfish.break -> Chore: pop
+me -> Goldfish.break: was easy
+Goldfish.break -> sd chores.2: was easy
+sd chores.2 -> chores_txt: tick off the line

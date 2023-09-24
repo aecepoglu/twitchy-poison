@@ -3,10 +3,10 @@ defmodule TodoTest do
   import Todo
   test "string" do
     right = empty()
-    |> add(%Todo{label: "1"}, :push_out)
-    |> add(%Todo{label: "2"}, :push_out)
+    |> add(%Todo{label: "1"}, :push)
+    |> add(%Todo{label: "2"}, :push)
     |> del
-    |> add(%Todo{label: "3"}, :push_out)
+    |> add(%Todo{label: "3"}, :push)
     |> strings(40, color: false)
 
     left = [
@@ -17,13 +17,97 @@ defmodule TodoTest do
     assert left == right
   end
 
+  test "pop one out of a group" do
+    received = empty()
+    |> add(%Todo{label: "1"}, :push)
+    |> add(%Todo{label: "2"}, :push)
+    |> add(%Todo{label: "3"}, :push)
+    |> join_eager
+    |> pop
+    |> strings(40, color: false)
+    assert received == [
+      "  ○ 3",
+      "╭ ○ 2",
+      "╰ ○ 1",
+    ]
+  end
+
+  test "pop out a pair" do
+    received = empty()
+    |> add(%Todo{label: "1"}, :push)
+    |> add(%Todo{label: "2"}, :push)
+    |> join
+    |> pop
+    |> strings(40, color: false)
+    assert received == [
+      "  ○ 2",
+      "  ○ 1",
+    ]
+  end
+
+  test "del lonely item" do
+    received = empty()
+    |> add(%Todo{label: "1"}, :push)
+    |> add(%Todo{label: "2"}, :push)
+    |> add(%Todo{label: "3"}, :push)
+    |> del
+    |> strings(40, color: false)
+    assert received == [
+      "  ○ 2",
+      "  ○ 1",
+    ]
+  end
+
+  test "del out of a group" do
+    received = empty()
+    |> add(%Todo{label: "1"}, :push)
+    |> add(%Todo{label: "2"}, :push)
+    |> add(%Todo{label: "3"}, :push)
+    |> join_eager()
+    |> del
+    |> strings(40, color: false)
+    assert received == [
+      "╭ ○ 2",
+      "╰ ○ 1",
+    ]
+  end
+
+  test "del disbands group of 1" do
+    received = empty()
+    |> add(%Todo{label: "1"}, :push)
+    |> add(%Todo{label: "2"}, :push)
+    |> join_eager()
+    |> add(%Todo{label: "3"}, :push)
+    |> pop
+    |> add(%Todo{label: "4"}, :push)
+    |> del
+    |> strings(40, color: false)
+    assert received == [
+      "  ○ 3",
+      "╭ ○ 2",
+      "╰ ○ 1",
+    ]
+  end
+
+  test "string of one" do
+    strings =  [
+      [%Todo{label: "1"}]
+    ]
+    |> strings(40, color: false)
+
+    assert strings == [
+      "< ○ 1"
+    ]
+  end
+
   test "long lines fold" do
     right = empty()
-    |> add(%Todo{label: "hii"}, :push_out)
-    |> add(%Todo{label: "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen"}, :push_out)
-    |> add(%Todo{label: "bye"}, :push_out)
+    |> add(%Todo{label: "hii"}, :push)
+    |> add(%Todo{label: "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen"}, :push)
+    |> add(%Todo{label: "bye"}, :push)
     |> join
-    |> add(%Todo{label: "ungrouped"}, :push_out)
+    |> add(%Todo{label: "ungrouped"}, :push)
+    |> pop()
     |> strings(40, color: false)
 
     left = [
@@ -39,9 +123,9 @@ defmodule TodoTest do
 
   test "mark_done" do
     right = empty()
-    |> add(%Todo{label: "one"}, :push_out)
-    |> add(%Todo{label: "two"}, :push_out)
-    |> add(%Todo{label: "three"}, :push_out)
+    |> add(%Todo{label: "one"}, :push)
+    |> add(%Todo{label: "two"}, :push)
+    |> add(%Todo{label: "three"}, :push)
     |> join
     |> mark_done!
 
@@ -56,18 +140,20 @@ defmodule TodoTest do
 
   test "join eagerly" do
     created = empty()
-    |> add(%Todo{label: "one"}, :push_out)
-    |> add(%Todo{label: "two"}, :push_out)
-    |> add(%Todo{label: "three"}, :push_out)
+    |> add(%Todo{label: "one"}, :push)
+    |> add(%Todo{label: "two"}, :push)
+    |> add(%Todo{label: "three"}, :push)
     |> join
     |> join
-    |> add(%Todo{label: "four"}, :push_out)
-    |> add(%Todo{label: "five"}, :push_out)
-    |> add(%Todo{label: "six"}, :push_out)
+    |> add(%Todo{label: "four"}, :push)
+    |> pop()
+    |> add(%Todo{label: "five"}, :push)
+    |> add(%Todo{label: "six"}, :push)
     |> join_eager
-    |> add(%Todo{label: "seven"}, :push_out)
-    |> add(%Todo{label: "eight"}, :push_out)
-    |> add(%Todo{label: "nine"}, :push_out)
+    |> add(%Todo{label: "seven"}, :push)
+    |> pop()
+    |> add(%Todo{label: "eight"}, :push)
+    |> add(%Todo{label: "nine"}, :push)
     |> join_eager
     |> strings(40)
 

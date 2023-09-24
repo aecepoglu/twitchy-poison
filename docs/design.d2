@@ -6,15 +6,16 @@ Websocket.shape: cloud
 Websocket.style.multiple: true
 IRCConnection.style.multiple: true
 WebsocketConnection.style.multiple: true
-Goldfish.inbox.shape: queue
+Hub.inbox.shape: queue
 
 IRC <> IRCConnection
 Websocket <> WebsocketConnection
-IRCConnection -> Goldfish.inbox
-WebsocketConnection -> Goldfish.inbox
-Goldfish.inbox -> Goldfish.loop -> Goldfish.update
-Goldfish.Model -> Goldfish.update -> Goldfish.Model
-Goldfish.update -> Goldfish.View
+IRCConnection -> Hub.inbox
+Socket -> Hub.inbox
+WebsocketConnection -> Hub.inbox
+Hub.inbox -> Hub.update
+Hub.Model -> Hub.update -> Hub.Model
+Hub.update -> Hub.View
+Keyboard -> Hub.inbox
 
-Kakoune <> GoldfishCLI -> Goldfish.inbox
-Goldfish.update -> GoldfishCLI
+Kakoune <> GoldfishCLI <> Socket

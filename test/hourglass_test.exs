@@ -25,7 +25,7 @@ defmodule HourglassTest do
     assert [{4, 0}, {3, 0}, {0, 8}, {0, 8}, {0, 8}] == trend
   end
 
-  test "staying idle too is a cause for an alarm" do
+  test "staying idle is a cause for an alarm" do
     right =
       setup_need_for_break()
       |> Hourglass.alerts
@@ -35,7 +35,7 @@ defmodule HourglassTest do
       label: "split your task",
       type: :countdown,
       snooze: 15,
-      val: 0}
+      later: 0}
     assert [alarm] == right
   end
 
@@ -46,5 +46,22 @@ defmodule HourglassTest do
       |> Hourglass.alerts
 
     assert [] == right
+  end
+
+  defp log_activity(hourglass, mode, [times: k, progress: p]) do
+    Enum.reduce(1..k, hourglass,
+      fn _, hg ->
+        hg
+        |> Hourglass.progress(p)
+        |> Hourglass.tick(mode)
+      end)
+  end
+
+  test "working a lot is a cause for an alarm" do
+    alerts = Hourglass.make(duration: 1)
+    |> log_activity(:work, times: 10, progress: 1)
+    |> Hourglass.alerts()
+
+    assert alerts == [Alarm.make("rest", label: "take a break")]
   end
 end
