@@ -1,3 +1,14 @@
+defmodule IRC do
+  def connect(:twitch) do
+    {:ok, pid} = DynamicSupervisor.start_child(IRC.Supervisor, Twitch.IrcClient)
+    ref = Process.monitor(pid)
+    #TODO crash the child process and handle its restart
+    #TODO user list doesnt seem to work for now
+    # :ok = WebSockex.send_frame(pid, {:text, "JOIN #punkdagod"})
+    # :ok = WebSockex.send_frame(pid, {:text, "PART #punkdagod"})
+  end
+end
+
 defmodule Input.Socket do
   require Logger
 
@@ -85,6 +96,11 @@ defmodule Input.Socket do
                                               |> Enum.reduce(0, & &1 + &2)
                                               |> to_string
                                               ]}
+  defp process(["irc /connect twitch"]), do: IRC.connect(:twitch)
+  defp process(["irc /dc " <> _ch]), do: {:ok, "TODO"}
+  defp process(["irc /join " <> _room]), do: {:ok, "TODO"}
+  defp process(["irc /part " <> _room]), do: {:ok, "TODO"}
+  defp process(["irc /switch  " <> _room]), do: {:ok, "TODO"}
   defp process([_]),               do: {:error, :unknown_command}
 
   defp cast(msg), do: GenServer.cast(:hub, msg)

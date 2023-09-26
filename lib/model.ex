@@ -42,7 +42,7 @@ defmodule Model do
     todo: Todo.del(m.todo),
     }
   def update(m, {:task_put_cur, x}), do: %Model{m |
-    hg: Hourglass.progress(m.hg, 1),
+    hg: Hourglass.progress(m.hg, 3),
     todo: Todo.upsert_head(m.todo, Todo.deserialise(x)),
     }
   def update(m, :task_persist), do: %{m | todo: Todo.persist!(m.todo)}
