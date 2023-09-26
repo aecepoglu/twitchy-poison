@@ -66,6 +66,7 @@ defmodule Input.Socket do
   defp process(["done"]),          do: Hub.task_done()
   defp process(["push " <> x]),    do: Hub.task_add(x, :push)
   defp process(["insert " <> x]),  do: Hub.task_add(x, :last)
+  defp process(["next " <> x]),    do: Hub.task_add(x, :next)
   defp process(["pop"]),           do: cast(:task_pop)
   defp process(["del"]),           do: Hub.task_del()
   defp process(["rot in"]),        do: Hub.task_rot(:inside)

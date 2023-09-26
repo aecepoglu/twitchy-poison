@@ -3,15 +3,14 @@ defmodule TwitchyPoison.Supervisor do
 
   use Application
 
-  def list_children(_hide_deps=true), do: [
+  def list_children(:test), do: [
       {Task.Supervisor, name: Input.Socket.TaskSupervisor},
       Supervisor.child_spec(
         {Task, fn -> Input.Socket.listen(4444, :port) end},
         restart: :permanent
       )
     ]
-  def list_children(_hide_deps=false) do
-    [
+  def list_children(m) when m in [:dev, :prod] , do: [
       {Task.Supervisor, name: Input.Socket.TaskSupervisor},
       Supervisor.child_spec(
         {Task, fn -> Input.Socket.listen("/tmp/goldfish.sock", :filepath, rmfile: true) end},
@@ -21,11 +20,11 @@ defmodule TwitchyPoison.Supervisor do
       Hub,
       Chore,
     ]
-  end
+  def list_children(:repl), do: []
 
   @impl true
   def start(_type, _args) do
-    children = Application.get_env(:twitchy_poison, :hide_deps, true)
+    children = Application.get_env(:twitchy_poison, :environment, :prod)
     |> list_children()
 
     opts = [strategy: :one_for_one, name: TwitchyPoison.Supervisor]

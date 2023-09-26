@@ -20,9 +20,9 @@ defmodule Hub do
   end
 
   @impl true
-  def handle_call(:task_get_cur, _from, {_, todo}=state) do
-    resp = Todo.dump_cur(todo)
-    {:reply, resp, state}
+  def handle_call(msg, _from, state) do
+    resp = Model.ask(msg, state)
+    {:reply, {:ok, resp}, state}
   end
 
   @impl true

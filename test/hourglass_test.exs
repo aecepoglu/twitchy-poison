@@ -22,7 +22,7 @@ defmodule HourglassTest do
       |> Hourglass.tick(:work)
       |> elem(0)
       |> Trend.to_list()
-    assert [{4, 0}, {3, 0}, {0, 8}, {0, 8}, {0, 8}] == trend
+    assert [{4, 0}, {3, 0}, nil, nil, nil] == trend
   end
 
   test "staying idle is a cause for an alarm" do

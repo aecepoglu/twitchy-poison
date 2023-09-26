@@ -13,7 +13,7 @@ end
 
 defmodule TrendTest do
   use ExUnit.Case
-  @idle {0, 8}
+  @idle nil
 
   test "Trend.make initial state" do
     assert [@idle, @idle, @idle] == Trend.make(3) |> Trend.to_list()

@@ -32,8 +32,8 @@ defmodule Todo do
 
   def empty(), do: []
 
-  def rot([h | t], :outside), do: t ++ [h]
-  def rot([[hh | ht] | t], _) , do: [(ht ++ [hh]) | t]
+  def rot([h | t], :outside), do: add(t, h, :last)
+  def rot([[hh | ht] | t], _) , do: [add(ht, hh, :last) | t]
 
   def swap([h1, h2 | t]), do: [h2, h1 | t]
 
@@ -51,10 +51,14 @@ defmodule Todo do
 
   def add([h | t]                    , x, :push) when is_list(h), do: [[x | h] | t]
   def add(list                       , x, :push),                 do: [x | list]
-  def add([h | t]                    , x, :last) when is_list(h), do: [add(h, x, :last) | t]
+  def add([h|_]=list                 , x, :next) when is_list(h), do: [add(h, x, :last) | list]
+  def add([%Todo{done?: true}|_]=list, x, :next),                 do: [x | list]
+  def add([h|_]=list                 , x, :next) when is_list(h), do: [add(h, x, :last) | list]
+  def add([h | t]                    , x, :next),                 do: [h | add(t, x, :next)]
   def add([%Todo{done?: true}|_]=list, x, :last), do: [x | list]
+  def add([[%Todo{done?: true}|_]|_]=list, x, :last), do: [x | list]
   def add([h | t]                    , x, :last), do: [h | add(t, x, :last)]
-  def add([]                         , x, :last), do: [x]
+  def add([]                         , x, _), do: [x]
 
   def pop([[h1, h2] | t]), do: [h1, h2 | t]
   def pop([[hh | ht] | t]), do: [hh | [ht | t]]

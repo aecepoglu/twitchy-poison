@@ -14,6 +14,8 @@ defmodule Model do
       size: get_win_size(),
     }
 
+  def ask(:task_get_cur, m), do: {:ok, Todo.dump_cur(m.todo)}
+
   def update(m, :tick_minute) do
     m
     |> tick(:hg)
@@ -23,11 +25,11 @@ defmodule Model do
   end
   def update(m, :tick_second) when m.mode == :break, do: %{m | tmp: Break.tick(m.tmp)}
   def update(m, {:task_add, task, pos}), do: %{m |
-    hg: Hourglass.progress(m.hg, 1),
+    hg: Hourglass.progress(m.hg, 2),
     todo: Todo.add(m.todo, %Todo{label: task}, pos),
     }
   def update(m, :task_done), do: %{m |
-    hg: Hourglass.progress(m.hg, 3),
+    hg: Hourglass.progress(m.hg, 10),
     todo: Todo.mark_done!(m.todo),
     }
   def update(m, :task_disband), do: %Model{m | todo: Todo.disband(m.todo)}

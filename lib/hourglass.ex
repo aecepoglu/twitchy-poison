@@ -37,12 +37,12 @@ defmodule CurWin do
 end
 
 defmodule Trend do
-  @bloks ["▀", " ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+  @bloks [" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
     |> Enum.with_index(fn x, i -> {i, x} end)
     |> Map.new()
 
   def make(len) do
-    CircBuf.make(len, {0, 8})
+    CircBuf.make(len, nil)
   end
 
   def add(trend, %CurWin{done: d, broke: b}) do
@@ -51,14 +51,14 @@ defmodule Trend do
 
   def idle_too_long?(trend) do
     trend
-    |> CircBuf.take(2)
-    |> Enum.all?(fn {w, b} -> w + b == 0 end)
+    |> CircBuf.take(4)
+    |> Enum.all?(&idle?/1)
   end
 
   def worked_too_long?(trend) do
     trend
     |> CircBuf.take(10)
-    |> Enum.all?(fn {w, _} -> w > 0 end)
+    |> Enum.all?(&active?/1)
   end
 
   def to_list(x) do
@@ -67,7 +67,7 @@ defmodule Trend do
 
   def string(x, n) do
     CircBuf.take(x, n)
-    |> Enum.map(fn {w, b} -> @bloks[ if b > 0 do 0 else w + 1 end ] end)
+    |> Enum.map(&str/1)
     |> Enum.join("")
     |> String.reverse
   end
@@ -75,12 +75,24 @@ defmodule Trend do
   def stats(trend) do
     trend
     |> to_list()
-    |> Enum.reduce({0, 0}, fn {b, w}, {ba, wa} -> {ba + b, wa + w} end)
+    |> Enum.reduce({0, 0}, &sum/2)
   end
 
   def id(past) do
     CircBuf.count_while(past, & &1 == 0)
   end
+
+  defp idle?({0, 0}), do: true
+  defp idle?(_), do: false
+  defp active?({_, 0}), do: true
+  defp active?(_), do: false
+
+  defp str({w, 0}), do: @bloks[w]
+  defp str({_, _}), do: "▀"
+  defp str(nil),    do: "-"
+
+  defp sum({a, b}, {c, d}), do: {a + c, b + d}
+  defp sum(nil   , x),      do: x
 end
 
 defmodule Hourglass do

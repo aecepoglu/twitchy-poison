@@ -1,3 +1,3 @@
 import Config
 
-config :twitchy_poison, :hide_deps, config_env() == :test
+config :twitchy_poison, :environment, config_env()
