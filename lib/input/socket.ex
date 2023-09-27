@@ -1,11 +1,54 @@
 defmodule IRC do
-  def connect(:twitch) do
+  use GenServer
+
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, nil, opts)
+  end
+
+  def connect(:twitch), do: GenServer.cast(:irc_hub, {:connect, :twitch})
+  def disconnect(:twitch), do: GenServer.cast(:irc_hub, {:disconnect, :twitch})
+  def join(:twitch, room), do: GenServer.cast(:irc_hub, {:join, :twitch, room})
+  def part(:twitch, room), do: GenServer.cast(:irc_hub, {:part, :twitch, room})
+  #TODO crash the child process and handle its restart
+
+  @impl true
+  def init(nil) do
+    {:ok, {%{}, %{}}}
+  end
+
+  @impl true
+  def handle_info(msg, state) do
+    IO.inspect(msg)
+    state
+  end
+
+  @impl true
+  def handle_cast({:connect, :twitch=addr}, {pids, refs}) do
     {:ok, pid} = DynamicSupervisor.start_child(IRC.Supervisor, Twitch.IrcClient)
     ref = Process.monitor(pid)
-    #TODO crash the child process and handle its restart
-    #TODO user list doesnt seem to work for now
-    # :ok = WebSockex.send_frame(pid, {:text, "JOIN #punkdagod"})
-    # :ok = WebSockex.send_frame(pid, {:text, "PART #punkdagod"})
+    {:noreply, {Map.put(pids, addr, pid),
+                Map.put(refs, addr, ref)}}
+  end
+
+  def handle_cast({:disconnect, addr}, {pids, refs}) do
+    {:ok, pid} = Map.fetch(pids, addr)
+    {:ok, ref} = Map.fetch(refs, addr)
+    true = Process.demonitor(ref)
+    true = Process.exit(pid, :normal)
+    {:noreply, {Map.delete(pids, addr),
+                Map.delete(refs, addr)}}
+  end
+
+  def handle_cast({:join, addr, room}, {pids, _}=state) do
+    {:ok, pid} = Map.fetch(pids, addr)
+    :ok = WebSockex.send_frame(pid, {:text, "JOIN #" <> room})
+    {:noreply, state}
+  end
+
+  def handle_cast({:part, addr, room}, {pids, _}=state) do
+    {:ok, pid} = Map.fetch(pids, addr)
+    :ok = WebSockex.send_frame(pid, {:text, "PART #" <> room})
+    {:noreply, state}
   end
 end
 
@@ -97,9 +140,9 @@ defmodule Input.Socket do
                                               |> to_string
                                               ]}
   defp process(["irc /connect twitch"]), do: IRC.connect(:twitch)
-  defp process(["irc /dc " <> _ch]), do: {:ok, "TODO"}
-  defp process(["irc /join " <> _room]), do: {:ok, "TODO"}
-  defp process(["irc /part " <> _room]), do: {:ok, "TODO"}
+  defp process(["irc /disconnect twitch"]), do: IRC.disconnect(:twitch)
+  defp process(["irc /join twitch " <> room]), do: IRC.join(:twitch, room)
+  defp process(["irc /part twitch " <> room]), do: IRC.part(:twitch, room)
   defp process(["irc /switch  " <> _room]), do: {:ok, "TODO"}
   defp process([_]),               do: {:error, :unknown_command}
 

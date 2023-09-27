@@ -22,7 +22,7 @@ defmodule Hub do
   @impl true
   def handle_call(msg, _from, state) do
     resp = Model.ask(msg, state)
-    {:reply, {:ok, resp}, state}
+    {:reply, resp, state}
   end
 
   @impl true

@@ -1,3 +1,24 @@
+defmodule Room do
+  defstruct [:id,
+             names: [],
+             chat: CircBuf.make(1024, {"", "-"}),
+             ]
+
+  def record_chat(%Room{chat: c}=room, msg) do
+    %{room | chat: CircBuf.add(c, msg)}
+  end
+
+  def peek(%Room{chat: c}, count) do
+    CircBuf.take(c, count)
+    |> Enum.map(fn x ->
+      case x do
+        {nil, txt} -> txt
+        {user, txt} -> "#{user}: #{txt}"
+      end
+    end)
+  end
+end
+
 defmodule OAuthServer do
   @redirport 3456
 
@@ -110,24 +131,27 @@ defmodule Twitch.IrcClient do
   end
   defp incoming([userid, "PRIVMSG", room | words], state) do
     ":" <> txt = Enum.join(words, " ")
-    IO.puts("#{username(userid)} in #{room}: #{txt}")
+    IO.puts("#{userid} #{room} /// #{txt}")
     state
+    #record_room_chat(state, room, {username(userid), txt})
   end
   defp incoming([userid, "JOIN", room], state) do
     u = username(userid)
     IO.puts("#{u} joined #{room}")
-    elem = state
-    |> Map.get(room, MapSet.new())
-    |> MapSet.put(u)
-    Map.put(state, room, elem)
+    state
+    #elem = state
+    #|> Map.get(room, MapSet.new())
+    #|> MapSet.put(u)
+    #Map.put(state, room, elem)
   end
   defp incoming([userid, "PART", room], state) do
     u = username(userid)
     IO.puts("#{u} parted #{room}")
-    elem = state
-    |> Map.get(room, MapSet.new())
-    |> MapSet.delete(u)
-    Map.put(state, room, elem)
+    state
+    # elem = state
+    # |> Map.get(room, MapSet.new())
+    # |> MapSet.delete(u)
+    # Map.put(state, room, elem)
   end
   defp incoming([_, _, "ROOMSTATE", _room], state) do
     IO.puts("ROOM STATE")
@@ -154,8 +178,10 @@ defmodule Twitch.IrcClient do
     end
   end
 
-  def my_send(pid, txt) do
-    WebSockex.send_frame(pid, {:text, txt})
+  defp record_room_chat(state, room, record) do
+    x = Map.get(state, room, %Room{id: room})
+    |> Room.record_chat(record)
+    Map.put(state, room, x)
   end
 
   def foo() do

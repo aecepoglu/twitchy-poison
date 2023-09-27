@@ -3,6 +3,7 @@ defmodule TwitchyPoison.Supervisor do
   @common [
       {DynamicSupervisor, name: IRC.Supervisor, strategy: :one_for_one},
       {Twitch.Auth, name: :twitch_auth},
+      {IRC, name: :irc_hub},
   ]
 
   use Application
@@ -21,7 +22,7 @@ defmodule TwitchyPoison.Supervisor do
         {Task, fn -> Input.Socket.listen("/tmp/goldfish.sock", :filepath, rmfile: true) end},
         restart: :permanent
       ),
-      Input.Keyboard,
+      # Input.Keyboard,
       Hub,
       Chore,
     ]
