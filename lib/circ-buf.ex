@@ -19,7 +19,7 @@ defmodule CircBuf do
   end
 
   def count_while(%__MODULE__{}=cb, f) do
-    reduce_while(cb, 0, 0,
+    reduce_while(cb, 0,
       fn x, acc ->
         if f.(x) do
           {:continue, acc + 1}
@@ -30,6 +30,7 @@ defmodule CircBuf do
     )
   end
 
+  def reduce_while(cb, acc, f), do: reduce_while(cb, 1, acc, f)
   defp reduce_while(cb, i, acc, _) when i == cb.size, do: acc
   defp reduce_while(cb, i, acc, f) do
     x = at(cb, i)

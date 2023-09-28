@@ -9,6 +9,7 @@ defmodule IRC do
   def disconnect(:twitch), do: GenServer.cast(:irc_hub, {:disconnect, :twitch})
   def join(:twitch, room), do: GenServer.cast(:irc_hub, {:join, :twitch, room})
   def part(:twitch, room), do: GenServer.cast(:irc_hub, {:part, :twitch, room})
+  def get(addr), do: GenServer.call(:irc_hub, {:get, addr})
   #TODO crash the child process and handle its restart
 
   @impl true
@@ -49,6 +50,11 @@ defmodule IRC do
     {:ok, pid} = Map.fetch(pids, addr)
     :ok = WebSockex.send_frame(pid, {:text, "PART #" <> room})
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_call({:get, :twitch=addr}, _from, {pids, _}=state) do
+    {:reply, Map.fetch(pids, addr), state}
   end
 end
 

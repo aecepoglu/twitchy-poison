@@ -1,14 +1,38 @@
-defmodule Room do
+defmodule IRC.Room do
+  use GenServer
+
   defstruct [:id,
              names: [],
              chat: CircBuf.make(1024, {"", "-"}),
              ]
 
-  def record_chat(%Room{chat: c}=room, msg) do
+  @impl true
+  def init(id) do
+    {:ok, %__MODULE__{id: id}}
+  end
+
+  @impl true
+  def handle_cast({:record, user, msg}, state) do
+    {:noreply, record_chat(state, {user, msg})}
+  end
+
+  @impl true
+  def handle_call(:get, _, state) do
+    {:reply, state, state}
+  end
+  def handle_call({:peek, num}, _, state) do
+    {:reply, peek(state, num), state}
+  end
+
+  def start_link(id) do
+    GenServer.start_link(__MODULE__, id)
+  end
+
+  def record_chat(%__MODULE__{chat: c}=room, {_, _}=msg) do
     %{room | chat: CircBuf.add(c, msg)}
   end
 
-  def peek(%Room{chat: c}, count) do
+  def peek(%__MODULE__{chat: c}, count) do
     CircBuf.take(c, count)
     |> Enum.map(fn x ->
       case x do
@@ -17,6 +41,53 @@ defmodule Room do
       end
     end)
   end
+
+  def render(%__MODULE__{chat: c}, {width, height}) do
+    CircBuf.reduce_while(c, [],
+      fn {user, message}, acc ->
+        lines = user <> ": " <> message
+        |> String.Wrap.wrap_at(width)
+        if length(acc) + length(lines) > height do
+          acc
+        else
+          {:continue, acc ++ lines} #TODO fails if data has :continue
+        end
+      end
+    )
+    |> Enum.reverse()
+  end
+end
+
+defmodule IRC.RoomRegistry do
+  use GenServer
+  @impl true
+  def init(nil) do
+    {:ok, {%{}, %{}}}
+  end
+
+  @impl true
+  def handle_call({:get_or_create, {_, room}=id}, _from, {pids, refs}) do
+    if Map.has_key?(pids, id) do
+      pid = Map.fetch!(pids, id)
+      {:reply, pid, {pids, refs}}
+    else
+      {:ok, pid} = IRC.Room.start_link(room)
+      ref = Process.monitor(pid)
+      pids_ = Map.put(pids, id, pid)
+      refs_ = Map.put(refs, pid, ref)
+      {:reply, pid, {pids_, refs_}}
+    end
+  end
+  def handle_call({:get, {_,_}=id}, _, {pids, _}=state) do
+    {:reply, Map.fetch(pids, id), state}
+  end
+  def handle_call(:list, _, {pids, _}=state), do: {:reply, Map.keys(pids), state}
+
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, nil, opts)
+  end
+
+  def get(pid, {_,_}=id), do: GenServer.call(pid, {:get, id})
 end
 
 defmodule OAuthServer do
@@ -93,6 +164,8 @@ window.location.href=location.hash.replace('#','?')}</script> Redirecting...
 end
 
 defmodule Twitch.IrcClient do
+  # TODO this is very close to being a generic IRC client
+  #      move the twitch specific stuff elsewhere and make it so
   use WebSockex
 
   def start_link(opts) do
@@ -131,40 +204,17 @@ defmodule Twitch.IrcClient do
   end
   defp incoming([userid, "PRIVMSG", room | words], state) do
     ":" <> txt = Enum.join(words, " ")
-    IO.puts("#{userid} #{room} /// #{txt}")
-    state
-    #record_room_chat(state, room, {username(userid), txt})
-  end
-  defp incoming([userid, "JOIN", room], state) do
-    u = username(userid)
-    IO.puts("#{u} joined #{room}")
-    state
-    #elem = state
-    #|> Map.get(room, MapSet.new())
-    #|> MapSet.put(u)
-    #Map.put(state, room, elem)
-  end
-  defp incoming([userid, "PART", room], state) do
-    u = username(userid)
-    IO.puts("#{u} parted #{room}")
-    state
-    # elem = state
-    # |> Map.get(room, MapSet.new())
-    # |> MapSet.delete(u)
-    # Map.put(state, room, elem)
-  end
-  defp incoming([_, _, "ROOMSTATE", _room], state) do
-    IO.puts("ROOM STATE")
+    id = {"twitch", room}
+    pid = GenServer.call(:rooms, {:get_or_create, id})
+    Hub.cast({:received_chat_msg, id})
+    GenServer.cast(pid, {:record, username(userid), txt})
     state
   end
-  defp incoming([_, _, "USERSTATE", _room], state) do
-    IO.puts("USER STATE")
-    state
-  end
-  defp incoming([_, _, "GLOBALUSERSTATE"], state) do
-    IO.puts("GLOBAL USER STATE")
-    state
-  end
+  defp incoming([_userid, "JOIN", _room], state), do: state
+  defp incoming([_userid, "PART", _room], state), do: state
+  defp incoming([_, _, "ROOMSTATE", _room], state), do: state
+  defp incoming([_, _, "USERSTATE", _room], state), do: state
+  defp incoming([_, _, "GLOBALUSERSTATE"], state), do: state
   defp incoming([""], state), do: state
   defp incoming([], state), do: state
   defp incoming(list, state) do
@@ -176,12 +226,6 @@ defmodule Twitch.IrcClient do
       [h | _] -> h
       _ -> str
     end
-  end
-
-  defp record_room_chat(state, room, record) do
-    x = Map.get(state, room, %Room{id: room})
-    |> Room.record_chat(record)
-    Map.put(state, room, x)
   end
 
   def foo() do

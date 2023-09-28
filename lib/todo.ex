@@ -23,6 +23,23 @@ defmodule Todo.Parser do
   defp categorise(x), do: {:label, x}
 end
 
+defmodule Todo.Backup do
+  use GenServer
+
+  @impl true
+  def init([]) do
+    {:ok, []}
+  end
+  @impl true
+  def handle_call(:get, _, state), do: state
+  @impl true
+  def handle_cast({:put, v}, _), do: v
+
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, [], opts)
+  end
+end
+
 defmodule Todo do
   defstruct [
     :label,
@@ -69,7 +86,10 @@ defmodule Todo do
   def del([_ | t]), do: t
   def del([]), do: []
 
-  def mark_done!([%Todo{done?: false}=h | t]), do: t ++ [%{h | done?: true}]
+  def mark_done!([%Todo{done?: false}=h | t]) do
+    # FIXME Todo.Hook.run!(h.hook)
+    t ++ [%{h | done?: true}]
+  end
   def mark_done!([h | t]) when is_list(h) , do: [mark_done!(h) | t]
   def mark_done!([]), do: []
 
@@ -166,8 +186,7 @@ defmodule Todo do
       "x " <> k -> {true, k}
       "  " <> k -> {false, k}
     end
-    x = %Todo{} = struct!(Todo, Todo.Parser.parse(rest))
-    %{x | done?: done}
+    %{struct!(Todo, Todo.Parser.parse(rest)) | done?: done}
   end
 
   def persist!([%Todo{}=h | t]) do

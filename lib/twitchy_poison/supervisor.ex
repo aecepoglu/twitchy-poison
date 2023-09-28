@@ -4,6 +4,8 @@ defmodule TwitchyPoison.Supervisor do
       {DynamicSupervisor, name: IRC.Supervisor, strategy: :one_for_one},
       {Twitch.Auth, name: :twitch_auth},
       {IRC, name: :irc_hub},
+      {IRC.RoomRegistry, name: :rooms},
+      {Todo.Backup, name: :todo_backup},
   ]
 
   use Application

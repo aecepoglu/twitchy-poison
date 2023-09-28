@@ -6,6 +6,7 @@ defmodule Model do
              popup: nil,
              mode: :work,
              tmp: nil,
+             notification?: false
              ]
 
   def make(), do: %__MODULE__{
@@ -24,6 +25,8 @@ defmodule Model do
     |> set_popup(overwrite: false)
   end
   def update(m, :tick_second) when m.mode == :break, do: %{m | tmp: Break.tick(m.tmp)}
+  def update(m, {:received_chat_msg, from}), do: %{m | notification?: from}
+  def update(m, :task_reload), do: %{m | todo: GenServer.call(:todo_backup, :get)}
   def update(m, {:task_add, task, pos}), do: %{m |
     hg: Hourglass.progress(m.hg, 2),
     todo: Todo.add(m.todo, %Todo{label: task}, pos),
@@ -63,6 +66,8 @@ defmodule Model do
   def update(m, :start_break) when m.mode == :break, do: %{m | mode: :work}
 
   def update(m, :debug), do: %{m | mode: :debug}
+
+  def update(m, :focus_chat) when m.notification? != nil, do: %{m | mode: :chat}
 
   defp tick(m, :hg), do: %Model{m | hg: Hourglass.tick(m.hg, m.mode)}
   defp tick(m, :alarms), do: %Model{m | alarms: Alarm.ticks(m.alarms, 1)}
@@ -112,14 +117,29 @@ defmodule Model do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
     Break.render(m.tmp, :break, m.size)
   end
-  def render(%Model{mode: :work}=m) do
+  def render(%Model{mode: :work, size: {_, height}}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
     Hourglass.render(m.hg, m.size)
     IO.write("\n\r")
     Todo.render(m.todo, m.size)
+    if m.notification? do
+      IO.write(
+        IO.ANSI.cursor(height, 1)
+        <> IO.ANSI.clear_line()
+        <> "TODO show new msg notification here"
+      )
+    end
     if m.popup != nil do
       Popup.render(m.popup, m.size)
     end
+  end
+  def render(%Model{mode: :chat}=m) do
+    IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1) <> "chat\n\r")
+    {:ok, pid} = IRC.RoomRegistry.get(:rooms, m.notification?)
+    GenServer.call(pid, :get)
+    |> IRC.Room.render(m.size)
+    |> Enum.join("\n\r")
+    |> IO.write()
   end
 end
 

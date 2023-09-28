@@ -14,11 +14,11 @@ defmodule CurWin do
     %__MODULE__{x | val: 0, done: 0, broke: 0}
 
   def tick(curwin, mode, d_val \\ 1)
-  def tick(%__MODULE__{val: v} = x, :work, d_val), do:
-    %__MODULE__{x | val: v + d_val}
   def tick(%__MODULE__{broke: v} = x, :break, d_val), do:
     %__MODULE__{x | broke: v + d_val,
                     val: v + d_val}
+  def tick(%__MODULE__{val: v} = x, _, d_val), do:
+    %__MODULE__{x | val: v + d_val}
 
   def work(%__MODULE__{} = x, d_val), do: %{x | done: x.done + d_val}
 

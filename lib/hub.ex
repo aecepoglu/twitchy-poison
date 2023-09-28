@@ -26,7 +26,8 @@ defmodule Hub do
   end
 
   @impl true
-  def handle_info(:tick_minute, state), do: handle_cast(:tick_minute, state)
+  #def handle_info(:tick_minute, state), do: handle_cast(:tick_minute, state)
+  def handle_info(:tick_minute, state), do: {:noreply, state}
   def handle_info(:tick_second, state) when state.mode == :break, do: handle_cast(:tick_second, state)
   def handle_info(:tick_second, state), do: {:noreply, state}
 
@@ -48,6 +49,8 @@ defmodule Hub do
   def start_break(), do: GenServer.cast(:hub, :start_break)
   def dir_move(dir), do: GenServer.cast(:hub, {:dir, dir})
   def escape(), do: GenServer.cast(:hub, :escape)
+  def cast(msg), do: GenServer.cast(:hub, msg)
+  def call(msg), do: GenServer.call(:hub, msg)
 
   defp noreply(x), do: {:noreply, x}
 end
