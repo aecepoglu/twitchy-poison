@@ -1,4 +1,6 @@
 defmodule Model do
+  alias Progress.Hourglass, as: Hourglass
+
   defstruct [:hg,
              :todo,
              :size,
@@ -26,29 +28,11 @@ defmodule Model do
   end
   def update(m, :tick_second) when m.mode == :break, do: %{m | tmp: Break.tick(m.tmp)}
   def update(m, {:received_chat_msg, from}), do: %{m | notification?: from}
+  def update(m, [:task | tl]) do
+    {dp, todo_} = task_update(m.todo, tl)
+    %{m | todo: todo_, hg: Hourglass.progress(m.hg, dp)}
+  end
   def update(m, :task_reload), do: %{m | todo: GenServer.call(:todo_backup, :get)}
-  def update(m, {:task_add, task, pos}), do: %{m |
-    hg: Hourglass.progress(m.hg, 2),
-    todo: Todo.add(m.todo, %Todo{label: task}, pos),
-    }
-  def update(m, :task_done), do: %{m |
-    hg: Hourglass.progress(m.hg, 10),
-    todo: Todo.mark_done!(m.todo),
-    }
-  def update(m, :task_disband), do: %Model{m | todo: Todo.disband(m.todo)}
-  def update(m, {:task_rot, mode}), do: %Model{m | todo: Todo.rot(m.todo, mode)}
-  def update(m, :task_join), do: %Model{m | todo: Todo.join(m.todo)}
-  def update(m, :task_join_eager), do: %Model{m | todo: Todo.join_eager(m.todo)}
-  def update(m, :task_pop), do: %Model{m | todo: Todo.pop(m.todo)}
-  def update(m, :task_del), do: %Model{m |
-    hg: Hourglass.progress(m.hg, 1),
-    todo: Todo.del(m.todo),
-    }
-  def update(m, {:task_put_cur, x}), do: %Model{m |
-    hg: Hourglass.progress(m.hg, 3),
-    todo: Todo.upsert_head(m.todo, Todo.deserialise(x)),
-    }
-  def update(m, :task_persist), do: %{m | todo: Todo.persist!(m.todo)}
   def update(m, action) when action in [:action_1, :action_2, :escape]
                         and m.popup != nil, do: Popup.act(m.popup, action, m)
   def update(m, :refresh), do: %{m | size: get_win_size()}
@@ -71,6 +55,17 @@ defmodule Model do
 
   defp tick(m, :hg), do: %Model{m | hg: Hourglass.tick(m.hg, m.mode)}
   defp tick(m, :alarms), do: %Model{m | alarms: Alarm.ticks(m.alarms, 1)}
+
+  defp task_update(todo, [:add, task, pos]), do: {1 , Todo.add(todo, %Todo{label: task}, pos)}
+  defp task_update(todo, [:done]),           do: {10, Todo.mark_done!(todo)}
+  defp task_update(todo, [:disband]),        do: {0 , Todo.disband(todo)}
+  defp task_update(todo, [:join]),           do: {0 , Todo.join(todo)}
+  defp task_update(todo, [:join_eager]),     do: {0 , Todo.join_eager(todo)}
+  defp task_update(todo, [:pop]),            do: {0 , Todo.pop(todo)}
+  defp task_update(todo, [:del]),            do: {1 , Todo.del(todo)}
+  defp task_update(todo, [:put_cur, x]),     do: {5 , Todo.upsert_head(todo, Todo.deserialise(x))}
+  defp task_update(todo, [:rot, mode]),      do: {0 , Todo.rot(todo, mode)}
+  defp task_update(todo, [:persist]),        do: {0 , Todo.persist!(todo)}
 
   defp add_new_alerts(m) do
     aa = Hourglass.alerts(m.hg)
@@ -145,14 +140,14 @@ end
 
 defmodule FlowState do
   def suggest(%Model{}=m) do
-    Hourglass.past(m.hg)
+    Progress.Hourglass.past(m.hg)
     |> suggest_break_len()
   end
-  def need_break?(%CircBuf{}=past, %CurWin{}=now) do
+  def need_break?(%CircBuf{}=past, %Progress.CurWin{}=now) do
     (now.broke == 0) && (suggest_break_len(past) > 0)
   end
   def suggest_break_len(%CircBuf{}=past) do
-    {work, rest} = Trend.stats(past)
+    {work, rest} = Progress.Trend.stats(past)
     60 * (floor(work / 3) - rest)
     |> max(0)
   end

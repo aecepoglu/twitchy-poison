@@ -1,16 +1,3 @@
-defmodule String.Wrap do
-  def wrap_at(text, width) do
-    aux(text, width, [])
-  end
-
-  defp aux(text, width, lines) do
-    case String.split_at(text, width) do
-      {left, ""}    -> [left | lines] |> Enum.reverse
-      {left, right} -> aux(right, width, [left | lines])
-    end
-  end
-end
-
 defmodule Bordered do
   defp fill(txt, width, fill) do
     k = String.length(txt)
@@ -30,8 +17,7 @@ defmodule Bordered do
   end
 
   def rows(lines, width) do
-    lines
-    |> Enum.flat_map(& String.Wrap.wrap_at(&1, width))
+    String.Wrap.wrap_lines(lines, width)
     |> Enum.map(& row("▌", "│", &1, width, " "))
   end
 

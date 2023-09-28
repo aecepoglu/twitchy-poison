@@ -10,7 +10,6 @@ defmodule IRC do
   def join(:twitch, room), do: GenServer.cast(:irc_hub, {:join, :twitch, room})
   def part(:twitch, room), do: GenServer.cast(:irc_hub, {:part, :twitch, room})
   def get(addr), do: GenServer.call(:irc_hub, {:get, addr})
-  #TODO crash the child process and handle its restart
 
   @impl true
   def init(nil) do
@@ -28,16 +27,16 @@ defmodule IRC do
     {:ok, pid} = DynamicSupervisor.start_child(IRC.Supervisor, Twitch.IrcClient)
     ref = Process.monitor(pid)
     {:noreply, {Map.put(pids, addr, pid),
-                Map.put(refs, addr, ref)}}
+                Map.put(refs, pid, ref)}}
   end
 
   def handle_cast({:disconnect, addr}, {pids, refs}) do
     {:ok, pid} = Map.fetch(pids, addr)
-    {:ok, ref} = Map.fetch(refs, addr)
+    {:ok, ref} = Map.fetch(refs, pid)
     true = Process.demonitor(ref)
     true = Process.exit(pid, :normal)
     {:noreply, {Map.delete(pids, addr),
-                Map.delete(refs, addr)}}
+                Map.delete(refs, pid)}}
   end
 
   def handle_cast({:join, addr, room}, {pids, _}=state) do
@@ -122,22 +121,21 @@ defmodule Input.Socket do
   end
   defp handle({:error, _}=err),    do: err
 
+  defp process(["done"]),          do: cast([:task, :done])
+  defp process(["push " <> x]),    do: cast([:task, :add, x, :push])
+  defp process(["insert " <> x]),  do: cast([:task, :add, x, :last])
+  defp process(["next " <> x]),    do: cast([:task, :add, x, :next])
+  defp process(["pop"]),           do: cast([:task, :pop])
+  defp process(["del"]),           do: cast([:task, :del])
+  defp process(["rot in"]),        do: cast([:task, :rot, :inside])
+  defp process(["rot out"]),       do: cast([:task, :rot, :outside])
+  defp process(["join"]),          do: cast([:task, :join])
+  defp process(["join eager"]),    do: cast([:task, :join_eager])
+  defp process(["disband"]),       do: cast([:task, :disband])
+  defp process(["puthead" | x]),   do: cast([:task, :put_cur, x])
   defp process(["quit"]),          do: :init.stop()
-  defp process(["done"]),          do: Hub.task_done()
-  defp process(["push " <> x]),    do: Hub.task_add(x, :push)
-  defp process(["insert " <> x]),  do: Hub.task_add(x, :last)
-  defp process(["next " <> x]),    do: Hub.task_add(x, :next)
-  defp process(["pop"]),           do: cast(:task_pop)
-  defp process(["del"]),           do: Hub.task_del()
-  defp process(["rot in"]),        do: Hub.task_rot(:inside)
-  defp process(["rot out"]),       do: Hub.task_rot(:outside)
-  defp process(["join"]),          do: Hub.task_join()
-  defp process(["join eager"]),    do: Hub.task_join_eager()
-  defp process(["disband"]),       do: Hub.task_disband()
   defp process(["curtask"]),       do: Hub.get_cur_task()
-  defp process(["puthead" | x]),   do: Hub.put_cur_task(x)
   defp process(["putchores" | x]), do: Hub.put_chores(x)
-  defp process(["task persist"]),  do: cast(:task_persist)
   defp process(["debug"]),         do: cast(:debug)
   defp process(["hello"]),         do: {:ok, ["world"]}
   defp process(["sum" | nums]),    do: {:ok, [nums

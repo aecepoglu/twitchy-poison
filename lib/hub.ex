@@ -7,8 +7,8 @@ defmodule Hub do
 
   @impl true
   def init(nil) do
-    {:ok, timer_ref1} = :timer.send_interval(:timer.seconds(60), :tick_minute)
-    {:ok, timer_ref2} = :timer.send_interval(:timer.seconds(1), :tick_second)
+    {:ok, _tref1} = :timer.send_interval(:timer.seconds(60), :tick_minute)
+    {:ok, _tref2} = :timer.send_interval(:timer.seconds(1), :tick_second)
     {:ok, Model.make()}
   end
 
@@ -32,15 +32,8 @@ defmodule Hub do
   def handle_info(:tick_second, state), do: {:noreply, state}
 
   def tick(), do: GenServer.cast(:hub, :tick_minute)
-  def task_add(task, pos), do: GenServer.cast(:hub, {:task_add, task, pos})
-  def task_done(), do: GenServer.cast(:hub, :task_done)
   def task_disband(), do: GenServer.cast(:hub, :task_disband)
-  def task_rot(x), do: GenServer.cast(:hub, {:task_rot, x})
-  def task_join(), do: GenServer.cast(:hub, :task_join)
-  def task_join_eager(), do: GenServer.cast(:hub, :task_join_eager)
-  def task_del(), do: GenServer.cast(:hub, :task_del)
   def get_cur_task(), do: GenServer.call(:hub, :task_get_cur)
-  def put_cur_task(lines), do: GenServer.cast(:hub, {:task_put_cur, lines})
   def put_chores(lines), do: GenServer.cast(Chore, {:put, lines})
   def action_1(), do: GenServer.cast(:hub, :action_1)
   def action_2(), do: GenServer.cast(:hub, :action_2)

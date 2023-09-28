@@ -46,7 +46,7 @@ defmodule IRC.Room do
     CircBuf.reduce_while(c, [],
       fn {user, message}, acc ->
         lines = user <> ": " <> message
-        |> String.Wrap.wrap_at(width)
+        |> String.Wrap.wrap(width)
         if length(acc) + length(lines) > height do
           acc
         else

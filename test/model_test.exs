@@ -22,20 +22,21 @@ defmodule ModelTest do
 
   test "countdowns create a popup when they're ready" do
     m = %{Model.make() | alarms: [Alarm.make(nil, label: "an alarm")]}
-    |> Model.update(:tick_minute)
-    assert match?(%Popup{ label: "an alarm", actions: [_,_,_] }, m.popup)
+        |> Model.update(:tick_minute)
+    assert match?(%Popup{ label: "an alarm", actions: [_,_,_] },
+                  m.popup)
   end
 
   test "action_1 on its Popup snoozes an Alarm, resetting the popup" do
     a = Alarm.make(nil, snooze: 10, label: "an alarm")
     b = Alarm.make(nil, snooze: 7, label: "the second alarm")
     m = %{Model.make() | alarms: [a, b]}
-    |> Model.update(:tick_minute)
-    |> Model.update(:action_1)
+        |> Model.update(:tick_minute)
+        |> Model.update(:action_1)
 
-    assert match?(%Popup{ label: "the second alarm", actions: _}, m.popup)
-    left = [Alarm.tick(b), Alarm.snooze(a)]
-    assert left == m.alarms
+    assert match?(%Popup{ label: "the second alarm", actions: _},
+                  m.popup)
+    assert m.alarms == [Alarm.tick(b), Alarm.snooze(a)]
   end
 
 #  @tag :skip

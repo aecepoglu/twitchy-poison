@@ -2,26 +2,26 @@ defmodule AlarmTest do
   use ExUnit.Case
 
   test "tick(dt)" do
-    right =
+    alarm =
       Alarm.make(nil, later: 120, snooze: 600, label: "two mins passed")
       |> Alarm.tick(17)
 
-    assert Alarm.make(nil, later: 103, snooze: 600, label: "two mins passed") == right
+    assert alarm == Alarm.make(nil, later: 103, snooze: 600, label: "two mins passed")
   end
 
   test "list_active() lists nothing" do
-    right =
+    alarms =
       [Alarm.make(nil, later: 1)]
       |> Alarm.list_active
-    assert [] == right
+    assert alarms == []
   end
 
   test "list_active() lists active ones" do
-    right =
+    alarms =
       [Alarm.make(nil, later: 1, label: "twenty seconds")]
       |> Alarm.ticks(1)
       |> Alarm.list_active
-    assert [Alarm.make(nil, later: 0, label: "twenty seconds")] == right
+    assert alarms == [Alarm.make(nil, later: 0, label: "twenty seconds")]
   end
 
   test "add() sorted" do
@@ -37,7 +37,6 @@ defmodule AlarmTest do
   test "add() overwrites if the same exists" do
     old = [ %Alarm{id: "some id", later: 13, snooze: 17, label: "old label"} ]
     new = %Alarm{id: "some id", later: 20, snooze: 23, label: "new label"}
-    right = Alarm.add(old, new)
-    assert [new] == right
+    assert Alarm.add(old, new) == [new]
   end
 end
