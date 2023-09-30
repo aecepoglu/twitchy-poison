@@ -8,7 +8,8 @@ defmodule Model do
              popup: nil,
              mode: :work,
              tmp: nil,
-             notification?: false
+             notification?: false,
+             options: %{follow_chat_live?: true},
              ]
 
   def make(), do: %__MODULE__{
@@ -18,6 +19,7 @@ defmodule Model do
     }
 
   def ask(:task_get_cur, m), do: {:ok, Todo.dump_cur(m.todo)}
+  def ask(:options, m), do: {:ok, m.options}
 
   def update(m, :tick_minute) do
     m
@@ -52,6 +54,9 @@ defmodule Model do
   def update(m, :debug), do: %{m | mode: :debug}
 
   def update(m, :focus_chat) when m.notification? != nil, do: %{m | mode: :chat}
+  def update(m, {:option, key, value}) do
+    Map.update!(m, :options, &Map.put(&1, key, value))
+  end
 
   defp tick(m, :hg), do: %Model{m | hg: Hourglass.tick(m.hg, m.mode)}
   defp tick(m, :alarms), do: %Model{m | alarms: Alarm.ticks(m.alarms, 1)}
@@ -129,12 +134,18 @@ defmodule Model do
     end
   end
   def render(%Model{mode: :chat}=m) do
-    IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1) <> "chat\n\r")
-    {:ok, pid} = IRC.RoomRegistry.get(:rooms, m.notification?)
-    GenServer.call(pid, :get)
-    |> IRC.Room.render(m.size)
+    {width, height} = m.size
+    IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1) <> "chat #{width}x#{height}\n\r")
+    {:ok, pid} = IRC.RoomRegistry.fetch(:rooms, m.notification?)
+    {lines, unread}
+      = IRC.Room.render_and_read(pid, {width, height - 2},
+                                 indent: " ",
+                                 skip_unread: not(m.options.follow_chat_live?)
+                                 )
+    lines
     |> Enum.join("\n\r")
     |> IO.write()
+    IO.write("\n\rremainging unread: #{unread}")
   end
 end
 

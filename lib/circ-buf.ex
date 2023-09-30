@@ -30,12 +30,13 @@ defmodule CircBuf do
     )
   end
 
-  def reduce_while(cb, acc, f), do: reduce_while(cb, 1, acc, f)
-  defp reduce_while(cb, i, acc, _) when i == cb.size, do: acc
-  defp reduce_while(cb, i, acc, f) do
+  def reduce_while(cb, acc, f), do: reduce_while_(cb, 1, acc, f)
+  def reduce_while(cb, acc, [skip: skip], f), do: reduce_while_(cb, skip + 1, acc, f)
+  defp reduce_while_(cb, i, acc, _) when i == cb.size, do: acc
+  defp reduce_while_(cb, i, acc, f) do
     x = at(cb, i)
     case f.(x, acc) do
-      {:continue, y} -> reduce_while(cb, i + 1, y, f)
+      {:continue, y} -> reduce_while_(cb, i + 1, y, f)
       _ -> acc
     end
   end

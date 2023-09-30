@@ -1,65 +1,6 @@
-defmodule IRC.Room do
-  use GenServer
-
-  defstruct [:id,
-             names: [],
-             chat: CircBuf.make(1024, {"", "-"}),
-             ]
-
-  @impl true
-  def init(id) do
-    {:ok, %__MODULE__{id: id}}
-  end
-
-  @impl true
-  def handle_cast({:record, user, msg}, state) do
-    {:noreply, record_chat(state, {user, msg})}
-  end
-
-  @impl true
-  def handle_call(:get, _, state) do
-    {:reply, state, state}
-  end
-  def handle_call({:peek, num}, _, state) do
-    {:reply, peek(state, num), state}
-  end
-
-  def start_link(id) do
-    GenServer.start_link(__MODULE__, id)
-  end
-
-  def record_chat(%__MODULE__{chat: c}=room, {_, _}=msg) do
-    %{room | chat: CircBuf.add(c, msg)}
-  end
-
-  def peek(%__MODULE__{chat: c}, count) do
-    CircBuf.take(c, count)
-    |> Enum.map(fn x ->
-      case x do
-        {nil, txt} -> txt
-        {user, txt} -> "#{user}: #{txt}"
-      end
-    end)
-  end
-
-  def render(%__MODULE__{chat: c}, {width, height}) do
-    CircBuf.reduce_while(c, [],
-      fn {user, message}, acc ->
-        lines = user <> ": " <> message
-        |> String.Wrap.wrap(width)
-        if length(acc) + length(lines) > height do
-          acc
-        else
-          {:continue, acc ++ lines} #TODO fails if data has :continue
-        end
-      end
-    )
-    |> Enum.reverse()
-  end
-end
-
 defmodule IRC.RoomRegistry do
   use GenServer
+
   @impl true
   def init(nil) do
     {:ok, {%{}, %{}}}
@@ -78,7 +19,7 @@ defmodule IRC.RoomRegistry do
       {:reply, pid, {pids_, refs_}}
     end
   end
-  def handle_call({:get, {_,_}=id}, _, {pids, _}=state) do
+  def handle_call({:fetch, {_,_}=id}, _, {pids, _}=state) do
     {:reply, Map.fetch(pids, id), state}
   end
   def handle_call(:list, _, {pids, _}=state), do: {:reply, Map.keys(pids), state}
@@ -87,7 +28,7 @@ defmodule IRC.RoomRegistry do
     GenServer.start_link(__MODULE__, nil, opts)
   end
 
-  def get(pid, {_,_}=id), do: GenServer.call(pid, {:get, id})
+  def fetch(pid, {_,_}=id), do: GenServer.call(pid, {:fetch, id})
 end
 
 defmodule OAuthServer do
@@ -168,6 +109,8 @@ defmodule Twitch.IrcClient do
   #      move the twitch specific stuff elsewhere and make it so
   use WebSockex
 
+  @bots MapSet.new([":commanderroot", "smallstreamersdiscord_"])
+
   def start_link(opts) do
     oauth_token = Twitch.Auth.get()
     nickname = "whimsicallymade"
@@ -206,12 +149,28 @@ defmodule Twitch.IrcClient do
     ":" <> txt = Enum.join(words, " ")
     id = {"twitch", room}
     pid = GenServer.call(:rooms, {:get_or_create, id})
-    Hub.cast({:received_chat_msg, id})
     GenServer.cast(pid, {:record, username(userid), txt})
+    Hub.cast({:received_chat_msg, id})
     state
   end
-  defp incoming([_userid, "JOIN", _room], state), do: state
-  defp incoming([_userid, "PART", _room], state), do: state
+  defp incoming([userid, "JOIN", room], state) do
+    if MapSet.member?(@bots, userid) do
+      state
+    else
+      id = {"twitch", room}
+      pid = GenServer.call(:rooms, {:get_or_create, id})
+      GenServer.cast(pid, {:add_user, username(userid)})
+      state
+    end
+  end
+  defp incoming([userid, "PART", room], state) do
+    id = {"twitch", room}
+    case GenServer.call(:rooms, {:fetch, id}) do
+      {:ok, pid} -> GenServer.cast(pid, {:remove_user, username(userid)})
+      _ -> nil
+    end
+    state
+  end
   defp incoming([_, _, "ROOMSTATE", _room], state), do: state
   defp incoming([_, _, "USERSTATE", _room], state), do: state
   defp incoming([_, _, "GLOBALUSERSTATE"], state), do: state

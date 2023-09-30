@@ -143,6 +143,8 @@ defmodule Input.Socket do
                                               |> Enum.reduce(0, & &1 + &2)
                                               |> to_string
                                               ]}
+  defp process(["auto-update yes"]), do: cast({:auto_update, true})
+  defp process(["auto-update no"]),  do: cast({:auto_update, false})
   defp process(["irc /connect twitch"]), do: IRC.connect(:twitch)
   defp process(["irc /disconnect twitch"]), do: IRC.disconnect(:twitch)
   defp process(["irc /join twitch " <> room]), do: IRC.join(:twitch, room)
