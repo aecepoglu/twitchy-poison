@@ -23,23 +23,6 @@ defmodule Todo.Parser do
   defp categorise(x), do: {:label, x}
 end
 
-defmodule Todo.Backup do
-  use GenServer
-
-  @impl true
-  def init([]) do
-    {:ok, []}
-  end
-  @impl true
-  def handle_call(:get, _, state), do: state
-  @impl true
-  def handle_cast({:put, v}, _), do: v
-
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, [], opts)
-  end
-end
-
 defmodule Todo do
   defstruct [
     :label,
@@ -51,6 +34,7 @@ defmodule Todo do
 
   def rot([h | t], :outside), do: add(t, h, :last)
   def rot([[hh | ht] | t], _) , do: [add(ht, hh, :last) | t]
+  def rot(x, _), do: x
 
   def swap([h1, h2 | t]), do: [h2, h1 | t]
 

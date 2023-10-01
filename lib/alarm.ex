@@ -48,14 +48,14 @@ defmodule Alarm do
   def string([h | _]), do: h.label
 
   def popup([h | _]=ht) do
-   alias Alarm.Actions, as: Actions
+    alias Alarm.Actions, as: Actions
     popup = if is_active?(h) do
-     actions = [
-       {"snooze", [&Actions.unset_popup/1, &Actions.snooze/1, &Model.set_popup/1]},
-       {"delete", [&Actions.unset_popup/1, Actions.delete(h)]},
-       {"close", [&Actions.unset_popup/1]},
-     ]
-      Popup.make(h, actions: actions)
+      actions = [
+        {"snooze", [&Actions.unset_popup/1, &Actions.snooze/1, &Model.set_popup/1]},
+        {"delete", [&Actions.unset_popup/1, Actions.delete(h)]},
+        {"close", [&Actions.unset_popup/1]},
+      ]
+     Popup.make(h, actions: actions)
     else
       nil
     end

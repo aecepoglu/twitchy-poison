@@ -128,8 +128,17 @@ defmodule Twitch.IrcClient do
     |> String.split("\r\n")
     |> Enum.map(& String.split(&1, " "))
 
-    state_ = Enum.reduce(lines, state, &incoming/2)
-    {:ok, state_}
+    {replies, state_} = Enum.reduce(lines, {[], state},
+      fn x, {replies, state_} ->
+        {reply, state__} = incoming(x, state_)
+        {[reply | replies], state_}
+      end)
+    case {Enum.filter(replies, & &1 != nil), state_} do
+      {[], s} -> {:ok, s}
+      {r,  s} -> r_ = r |> Enum.map(& &1 <> "\r\n")
+                        |> Enum.join()
+                 {:reply, r_, s}
+    end
   end
   def handle_frame({type, msg}, state) do
     IO.puts "Received Message - Type: #{inspect type} -- Message: #{inspect msg}"
@@ -145,23 +154,28 @@ defmodule Twitch.IrcClient do
   defp incoming([_badges, userid, "PRIVMSG", room | words], state) do
     incoming([userid, "PRIVMSG", room | words], state)
   end
+  defp incoming([userid, "PRIVMSG", room, ":!hello"], state) do
+    {"PRIVMSG #{room} :world @#{username(userid)}", state}
+  end
   defp incoming([userid, "PRIVMSG", room | words], state) do
-    ":" <> txt = Enum.join(words, " ")
+    txt = case words do
+      [":" <> h | t] -> [h | t]
+      _ -> []
+    end |> Enum.map(&Chat.censor/1)
+        |> Enum.join(" ")
     id = {"twitch", room}
     pid = GenServer.call(:rooms, {:get_or_create, id})
     GenServer.cast(pid, {:record, username(userid), txt})
     Hub.cast({:received_chat_msg, id})
-    state
+    {nil, state}
   end
   defp incoming([userid, "JOIN", room], state) do
-    if MapSet.member?(@bots, userid) do
-      state
-    else
+    if !MapSet.member?(@bots, userid) do
       id = {"twitch", room}
       pid = GenServer.call(:rooms, {:get_or_create, id})
       GenServer.cast(pid, {:add_user, username(userid)})
-      state
     end
+    {nil, state}
   end
   defp incoming([userid, "PART", room], state) do
     id = {"twitch", room}
@@ -169,29 +183,37 @@ defmodule Twitch.IrcClient do
       {:ok, pid} -> GenServer.cast(pid, {:remove_user, username(userid)})
       _ -> nil
     end
-    state
+    {nil, state}
   end
-  defp incoming([_, _, "ROOMSTATE", _room], state), do: state
-  defp incoming([_, _, "USERSTATE", _room], state), do: state
-  defp incoming([_, _, "GLOBALUSERSTATE"], state), do: state
-  defp incoming([""], state), do: state
-  defp incoming([], state), do: state
+  defp incoming([_, _, "ROOMSTATE", _room], state), do: {nil, state}
+  defp incoming([_, _, "USERSTATE", _room], state), do: {nil, state}
+  defp incoming([_, _, "GLOBALUSERSTATE"], state), do: {nil, state}
+  defp incoming([""], state), do: {nil, state}
+  defp incoming([], state), do: {nil, state}
   defp incoming(list, state) do
     IO.inspect(list)
-    state
+    {nil, state}
   end
   defp username(str) do
     case String.split(str, "!") do
-      [h | _] -> h
-      _ -> str
+      [(":" <> h)| _] -> h
+      [ h        | _] -> h
+      _              -> str
     end
   end
+end
 
-  def foo() do
-    #{:ok, auth_token} = OAuthServer.whatever()
-    #nickname = "whimsicallymade"
-    #pid = Twitch.IrcClient.init(auth_token, nickname)
-    #:ok = WebSockex.send_frame(pid, {:text, "JOIN #aysart"})
-    #:ok = WebSockex.send_frame(pid, {:text, "PART #aysart"})
+defmodule Chat do
+  @cuss """
+  javascript
+""" |> String.trim |> String.split |> IO.inspect |> MapSet.new
+
+  def censor("NotLikeThis"), do: "x.x"
+  def censor(word) do
+    if MapSet.member?(@cuss, word) do
+      word |> String.length() |> Geometry.hor_line('*')
+    else
+      word
+    end
   end
 end

@@ -17,7 +17,6 @@ defmodule Progress.Hourglass do
   end
 
   def alerts({past, now}) do
-    
     # TODO [{now.done, now.broke} | Trend.take(past, 10)] |> analyse
     cond do
       Trend.idle_too_long?(past) && CurWin.idle?(now) ->
@@ -31,6 +30,10 @@ defmodule Progress.Hourglass do
   def progress({past, now}, dv), do: {past, CurWin.work(now, dv)}
 
   def remove_plan(model), do: model
+
+  def rewind({past, now}, k) do
+    {Trend.rewind(past, k), now}
+  end
 
   defp tick_up({past, %CurWin{} = now}, mode) do
     now_ = CurWin.tick(now, mode)

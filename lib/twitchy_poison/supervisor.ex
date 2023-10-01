@@ -5,11 +5,11 @@ defmodule TwitchyPoison.Supervisor do
       {Twitch.Auth, name: :twitch_auth},
       {IRC, name: :irc_hub},
       {IRC.RoomRegistry, name: :rooms},
-      {Todo.Backup, name: :todo_backup},
+      {Backup, [:hourglass_backup, Progress.Hourglass.make(), name: :hourglass_backup]},
+      {Backup, [:todo_backup, Todo.empty(), name: :todo_backup]},
   ]
 
   use Application
-
 
   def list_children(:test), do: @common ++ [
       {Task.Supervisor, name: Input.Socket.TaskSupervisor},

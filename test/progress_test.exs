@@ -67,6 +67,39 @@ defmodule TrendTest do
     {trend, _  } = Trend.add(trend, now)
     assert Trend.to_list(trend) == [{0, 0}, {0, 0}, {3, 0}, {8, 0}, {8, 0}]
   end
+
+  test "count stats up until the beginning of last break" do
+    work = CurWin.make(2) |> CurWin.work(1)
+    break = CurWin.make(2) |> CurWin.tick(:break)
+    stats = Trend.make(10)
+    |> Trend.add(work ) |> elem(0)
+    |> Trend.add(work ) |> elem(0)
+    |> Trend.add(work ) |> elem(0)
+    |> Trend.add(work ) |> elem(0)
+    |> Trend.add(break) |> elem(0)
+    |> Trend.add(break) |> elem(0)
+    |> Trend.add(break) |> elem(0)
+    |> Trend.add(work ) |> elem(0)
+    |> Trend.recent_stats()
+
+    assert stats == {1, 3}
+  end
+
+  test "count stats up until the very beginning" do
+    work = CurWin.make(2) |> CurWin.work(1)
+    break = CurWin.make(2) |> CurWin.tick(:break)
+    stats = Trend.make(10)
+    |> Trend.add(work ) |> elem(0)
+    |> Trend.add(break ) |> elem(0)
+    |> Trend.add(break ) |> elem(0)
+    |> Trend.add(break ) |> elem(0)
+    |> Trend.add(break ) |> elem(0)
+    |> Trend.add(work ) |> elem(0)
+    |> Trend.add(work ) |> elem(0)
+    |> Trend.recent_stats()
+
+    assert stats == {2, 4}
+  end
 end
 
 defmodule CurWinTest do

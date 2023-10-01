@@ -28,6 +28,12 @@ defmodule IRC.Room do
     reply = {_, unread} = render_and_count(state, size, opts)
     {:reply, reply, %{state | unread: unread}}
   end
+  def handle_call(:list_users, _, state) do
+    {:reply, MapSet.to_list(state.users), state}
+  end
+  def handle_call({:log_user, userid}, _, state) do
+    {:reply, log_user(state, userid), state}
+  end
 
   def start_link(id) do
     GenServer.start_link(__MODULE__, id)
@@ -77,5 +83,12 @@ defmodule IRC.Room do
       end
     )
     {Enum.reverse(lines), skip + max(0, unread_)}
+  end
+
+  def log_user(%__MODULE__{}=room, userid) do
+    room.chat
+    |> CircBuf.to_list()
+    |> Enum.filter(fn {u,_} -> u == userid end)
+    |> Enum.map(fn {_,msg} -> msg end)
   end
 end

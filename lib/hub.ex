@@ -13,6 +13,10 @@ defmodule Hub do
   end
 
   @impl true
+  #def handle_cast(event, state) when event in [:tick_minute, :tick_second] do
+  #  Model.update(state, event)
+  #  |> noreply
+  #end
   def handle_cast(event, state) do
     Model.update(state, event)
     |> tap(&Model.render/1)
@@ -26,8 +30,7 @@ defmodule Hub do
   end
 
   @impl true
-  #def handle_info(:tick_minute, state), do: handle_cast(:tick_minute, state)
-  def handle_info(:tick_minute, state), do: {:noreply, state}
+  def handle_info(:tick_minute, state), do: handle_cast(:tick_minute, state)
   def handle_info(:tick_second, state) when state.mode == :break, do: handle_cast(:tick_second, state)
   def handle_info(:tick_second, state), do: {:noreply, state}
 

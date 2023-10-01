@@ -12,10 +12,21 @@ defmodule CircBuf do
   def add(%__MODULE__{} = cb, val) do
     %{cb | idx: rem(cb.idx + 1, cb.size), buf: %{cb.buf | cb.idx => val}}
   end
+  def remove(%__MODULE__{} = cb) do
+    %{cb | idx: rem(cb.idx - 1, cb.size)}
+  end
 
   def take(%__MODULE__{} = cb, n) do
-    1..n
-    |> Enum.map(fn x -> cb.buf[Integer.mod(cb.idx - x, cb.size)] end)
+    Enum.map(1..n, &at(cb, &1))
+  end
+
+  def scan_bi(%__MODULE__{} = cb, acc, f) do
+    scan_bi_(cb, 1, acc, f)
+  end
+  defp scan_bi_(%__MODULE__{size: n}=cb, i, _, _) when i > n, do: cb
+  defp scan_bi_(%__MODULE__{}=cb, i, acc, f) do
+    {x_, acc_} = f.(at(cb, i), acc)
+    scan_bi_(put(cb, i, x_), i + 1, acc_, f)
   end
 
   def count_while(%__MODULE__{}=cb, f) do
@@ -41,13 +52,17 @@ defmodule CircBuf do
     end
   end
 
-  defp at(cb, i), do: cb.buf[Integer.mod(cb.idx - i, cb.size)]
-
   def to_list(%__MODULE__{}=cb) do
     cb.buf
     |> Map.to_list()
     |> Enum.map(fn {k, v} -> {Integer.mod(cb.idx - k - 1, cb.size), v} end)
     |> Enum.sort_by(& elem(&1, 0))
     |> Enum.map(& elem(&1, 1))
+  end
+
+  defp at(cb, i), do: cb.buf[Integer.mod(cb.idx - i, cb.size)]
+  defp put(cb, i, v) do
+    j = Integer.mod(cb.idx - i, cb.size)
+    Map.update!(cb, :buf, & Map.put(&1, j, v))
   end
 end

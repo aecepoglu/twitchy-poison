@@ -14,6 +14,10 @@ defmodule Progress.Trend do
     {CircBuf.add(trend, {min(d, @mn), b}), CurWin.sub(cw, @mn)}
   end
 
+  def rewind(trend, k) do
+    Enum.reduce(1..k, trend, fn _, acc -> CircBuf.remove(acc) end)
+  end
+
   def idle_too_long?(trend) do
     trend
     |> CircBuf.take(4)
@@ -41,11 +45,32 @@ defmodule Progress.Trend do
     trend
     |> to_list()
     |> Enum.reduce({0, 0}, &sum/2)
+    # FIXME use frequencies
+  end
+
+  def recent_stats(trend) do
+    {_, worked, rested} = CircBuf.reduce_while(trend, {:work, 0, 0},
+      fn x, {prev, worked, rested} ->
+        case {prev, cat(x)} do
+          {:break, o} when o != :break -> {o, worked, rested}
+          {_, b}  ->
+            d_rest = if b == :break do 1 else 0 end
+            d_work = if b == :work do 1 else 0 end
+            {:continue, {b, worked + d_work, rested + d_rest}}
+        end
+      end)
+    {worked, rested}
   end
 
   def id(past) do
     CircBuf.count_while(past, & &1 == 0)
   end
+
+  defp cat({0, 0}), do: :idle
+  defp cat({_, 0}), do: :work
+  defp cat({_, _}), do: :break
+  defp cat(nil), do: :none
+
 
   defp idle?({0, 0}), do: true
   defp idle?(_), do: false

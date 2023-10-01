@@ -1,3 +1,10 @@
+defmodule Geometry do
+  def hor_line(width, c) do
+    1..width
+    |> Enum.map(fn _ -> c end)
+    |> to_string
+  end
+end
 defmodule Bordered do
   defp fill(txt, width, fill) do
     k = String.length(txt)
@@ -41,7 +48,7 @@ defmodule Popup do
   }
 
   def render(popup, {width, height}) do
-    {p_width, p_height} = {80, 5}
+    {p_width, p_height} = {min(80, floor(width * 0.8)), 5}
     scroll = 0
     x0 = (width - p_width) / 2   |> max(0) |> floor
     y0 = (height - p_height) / 2 |> max(0) |> floor

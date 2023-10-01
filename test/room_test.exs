@@ -82,4 +82,38 @@ defmodule IRC.RoomTest do
     |> render_and_count({10, 5}, indent: "... ")
     assert lines == []
   end
+
+  test "list all messages by a user" do
+    msgs = %IRC.Room{ id: "room 123" }
+    |> record_chat({"user1", "one"})
+    |> record_chat({"user2", "two"})
+    |> record_chat({"user1", "three"})
+    |> record_chat({"user2", "four"})
+    |> record_chat({"user3", "five"})
+    |> record_chat({"user1", "six"})
+    |> record_chat({"user1", "seven"})
+    |> log_user("user1")
+
+    assert msgs == ["seven", "six", "three", "one"]
+  end
+
+  test "receive empty list when attempting to list messages of nonexistent user" do
+    msgs = %IRC.Room{ id: "room 123" }
+    |> record_chat({"user1", "one"})
+    |> record_chat({"user2", "two"})
+    |> log_user("user3")
+
+    assert msgs == []
+  end
+
+  test "listing messages have a history limit" do
+    room = %IRC.Room{ id: "room 123" }
+    |> record_chat({"old_user", "one"})
+    room_ = Enum.reduce(
+      1..(room.chat.size + 1),
+      room,
+      fn _, room1 -> record_chat(room1, {"new_user", "msg"}) end)
+    assert log_user(room_, "old_user") |> length == 0
+    assert log_user(room_, "new_user") |> length == room.chat.size
+  end
 end

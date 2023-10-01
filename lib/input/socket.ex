@@ -1,64 +1,18 @@
-defmodule IRC do
-  use GenServer
-
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, nil, opts)
+defmodule Input.Socket.Message do
+  def parse(str) when is_binary(str) do
+    String.split(str, " ")
+    |> identify
   end
-
-  def connect(:twitch), do: GenServer.cast(:irc_hub, {:connect, :twitch})
-  def disconnect(:twitch), do: GenServer.cast(:irc_hub, {:disconnect, :twitch})
-  def join(:twitch, room), do: GenServer.cast(:irc_hub, {:join, :twitch, room})
-  def part(:twitch, room), do: GenServer.cast(:irc_hub, {:part, :twitch, room})
-  def get(addr), do: GenServer.call(:irc_hub, {:get, addr})
-
-  @impl true
-  def init(nil) do
-    {:ok, {%{}, %{}}}
-  end
-
-  @impl true
-  def handle_info(msg, state) do
-    IO.inspect(msg)
-    state
-  end
-
-  @impl true
-  def handle_cast({:connect, :twitch=addr}, {pids, refs}) do
-    {:ok, pid} = DynamicSupervisor.start_child(IRC.Supervisor, Twitch.IrcClient)
-    ref = Process.monitor(pid)
-    {:noreply, {Map.put(pids, addr, pid),
-                Map.put(refs, pid, ref)}}
-  end
-
-  def handle_cast({:disconnect, addr}, {pids, refs}) do
-    {:ok, pid} = Map.fetch(pids, addr)
-    {:ok, ref} = Map.fetch(refs, pid)
-    true = Process.demonitor(ref)
-    true = Process.exit(pid, :normal)
-    {:noreply, {Map.delete(pids, addr),
-                Map.delete(refs, pid)}}
-  end
-
-  def handle_cast({:join, addr, room}, {pids, _}=state) do
-    {:ok, pid} = Map.fetch(pids, addr)
-    :ok = WebSockex.send_frame(pid, {:text, "JOIN #" <> room})
-    {:noreply, state}
-  end
-
-  def handle_cast({:part, addr, room}, {pids, _}=state) do
-    {:ok, pid} = Map.fetch(pids, addr)
-    :ok = WebSockex.send_frame(pid, {:text, "PART #" <> room})
-    {:noreply, state}
-  end
-
-  @impl true
-  def handle_call({:get, :twitch=addr}, _from, {pids, _}=state) do
-    {:reply, Map.fetch(pids, addr), state}
-  end
+  defp identify(["irc", "connect", ch]), do: {:irc, :connect, ch}
+  defp identify(["irc", "disconnect", ch]), do: {:irc, :disconnect, ch}
+  defp identify(["irc", "join", ch, room]), do: {:irc, :join, ch, room}
+  defp identify(["irc", "part", ch, room]), do: {:irc, :part, ch, room}
+  defp identify(["irc", "users", ch, room]), do: {:irc, :users, ch, room}
+  defp identify(["irc", "log", ch, room, user]), do: {:irc, :log, ch, room, user}
 end
-
 defmodule Input.Socket do
   require Logger
+  alias Input.Socket.Message, as: Message
 
   def listen(filepath, :filepath, rmfile: true) do
     if File.exists?(filepath) do
@@ -145,12 +99,16 @@ defmodule Input.Socket do
                                               ]}
   defp process(["auto-update yes"]), do: cast({:auto_update, true})
   defp process(["auto-update no"]),  do: cast({:auto_update, false})
-  defp process(["irc /connect twitch"]), do: IRC.connect(:twitch)
-  defp process(["irc /disconnect twitch"]), do: IRC.disconnect(:twitch)
-  defp process(["irc /join twitch " <> room]), do: IRC.join(:twitch, room)
-  defp process(["irc /part twitch " <> room]), do: IRC.part(:twitch, room)
-  defp process(["irc /switch  " <> _room]), do: {:ok, "TODO"}
-  defp process([_]),               do: {:error, :unknown_command}
+  defp process(["restart socket"]), do: {:error, :restart_socket}
+  defp process(["rewind " <> n]), do: cast({:rewind, String.to_integer(n)})
+  defp process([h|_]), do: process(Message.parse(h))
+  defp process({:irc, :connect, "twitch"}), do: IRC.connect(:twitch)
+  defp process({:irc, :disconnect, "twitch"}), do: IRC.disconnect(:twitch)
+  defp process({:irc, :join, "twitch", room}), do: IRC.join(:twitch, room)
+  defp process({:irc, :part, "twitch", room}), do: IRC.part(:twitch, room)
+  defp process({:irc, :users, "twitch", room}), do: IRC.list_users(:twitch, room)
+  defp process({:irc, :log, "twitch", room, user}), do: IRC.log_user(:twitch, room, user)
+  defp process([]),               do: {:error, :unknown_command}
 
   defp cast(msg), do: GenServer.cast(:hub, msg)
 
@@ -164,6 +122,10 @@ defmodule Input.Socket do
   end
   defp respond({:error, :unknown_command}, socket) do
     :gen_tcp.send(socket, "unknown cmd. Try incr or decr\n")
+  end
+  defp respond({:error, :restart_socket}, socket) do
+    :gen_tcp.send(socket, "restarting socket\n")
+    exit(:restart_socket)
   end
   defp respond({:error, err}, socket) do
     :gen_tcp.send(socket, "err\n")
