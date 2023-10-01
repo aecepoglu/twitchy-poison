@@ -5,34 +5,41 @@ defmodule Progress.Trend do
     |> Enum.with_index(fn x, i -> {i, x} end)
     |> Map.new()
   @mn 8
+  # type work = :idle
+  #           | :break
+  #           | {:work, int()}
 
-  def make(len) do
-    CircBuf.make(len, nil)
-  end
+  def make(_len), do: []
 
-  def add(trend, %CurWin{done: d, broke: b}=cw) do
-    {CircBuf.add(trend, {min(d, @mn), b}), CurWin.sub(cw, @mn)}
+  def add(trend, %CurWin{done: d, broke: b}) do
+    case {d, b} do
+      {0, 0} -> [:idle | trend]
+      {w, 0} -> [{:work, min(@mn, w)} | add_(trend, max(w - @mn, 0))]
+      _      -> [:break | trend]
+    end
   end
+  defp add_(list            , 0), do: list
+  defp add_([ :break    | t], x), do: [:break                   | add_(t, x)]
+  defp add_([ :idle     | t], x), do: [{:work, min(@mn, x)}     | add_(t, max(x - @mn, 0))]
+  defp add_([{:work, w} | t], x), do: [{:work, min(@mn, w + x)} | add_(t, max(x + w - @mn, 0))]
+  defp add_([              ], _), do: []
 
-  def rewind(trend, k) do
-    Enum.reduce(1..k, trend, fn _, acc -> CircBuf.remove(acc) end)
-  end
+  def rewind(trend, k), do: Enum.drop(trend, k)
 
   def idle_too_long?(trend) do
-    trend
-    |> CircBuf.take(4)
-    |> Enum.all?(&idle?/1)
+    length(trend) >= 4 && trend
+    |> Enum.take(4)
+    |> Enum.all?(& &1 == :idle)
   end
 
   def worked_too_long?(trend) do
-    trend
-    |> CircBuf.take(10)
-    |> Enum.all?(&active?/1)
+    length(trend) >= 10 && trend
+    |> Enum.take(10)
+    |> Enum.all?(& &1 != :idle && &1 != :break)
   end
 
-  def to_list(x) do
-    CircBuf.to_list(x)
-  end
+  def to_list(x), do: x
+  def size(x), do: length(x)
 
   def string(x, n) do
     CircBuf.take(x, n)
@@ -42,45 +49,28 @@ defmodule Progress.Trend do
   end
 
   def stats(trend) do
-    trend
-    |> to_list()
-    |> Enum.reduce({0, 0}, &sum/2)
-    # FIXME use frequencies
+    map = trend
+    |> Enum.map(&category/1)
+    |> Enum.frequencies()
+    Map.merge(%{idle: 0, work: 0, break: 0}, map)
   end
 
   def recent_stats(trend) do
-    {_, worked, rested} = CircBuf.reduce_while(trend, {:work, 0, 0},
-      fn x, {prev, worked, rested} ->
-        case {prev, cat(x)} do
-          {:break, o} when o != :break -> {o, worked, rested}
-          {_, b}  ->
-            d_rest = if b == :break do 1 else 0 end
-            d_work = if b == :work do 1 else 0 end
-            {:continue, {b, worked + d_work, rested + d_rest}}
-        end
-      end)
-    {worked, rested}
+    recent(trend, [])
+    |> stats
   end
+  defp recent([{:work, _} | _], [:break | _]=acc), do: acc
+  defp recent([h | t], acc), do: recent(t, [category(h) | acc])
+  defp recent([], acc), do: acc
 
   def id(past) do
     CircBuf.count_while(past, & &1 == 0)
   end
 
-  defp cat({0, 0}), do: :idle
-  defp cat({_, 0}), do: :work
-  defp cat({_, _}), do: :break
-  defp cat(nil), do: :none
-
-
-  defp idle?({0, 0}), do: true
-  defp idle?(_), do: false
-  defp active?({_, 0}), do: true
-  defp active?(_), do: false
+  defp category({:work, _}), do: :work
+  defp category(x),          do: x
 
   defp str({w, 0}), do: @bloks[w]
   defp str({_, _}), do: "▀"
   defp str(nil),    do: "-"
-
-  defp sum({a, b}, {c, d}), do: {a + c, b + d}
-  defp sum(nil   , x),      do: x
 end

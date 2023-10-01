@@ -14,7 +14,7 @@ defmodule HourglassTest do
 
   test "make" do
     {past, cur} = Hourglass.make(duration: 13, trend: 17)
-    assert length(past.buf |> Map.keys()) == 17
+    assert Trend.size(past) == 0
     assert cur.dur == 13
   end
 
@@ -25,9 +25,9 @@ defmodule HourglassTest do
       |> Hourglass.tick(:work)
       |> Hourglass.progress(4)
       |> Hourglass.tick(:work)
-      |> elem(0)
-      |> Trend.to_list()
-    assert trend == [{4, 0}, {3, 0}, nil, nil, nil]
+      |> Hourglass.past
+      |> Trend.to_list
+    assert trend == [{:work, 4}, {:work, 3}]
   end
 
   test "staying idle is a cause for an alarm" do

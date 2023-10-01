@@ -89,7 +89,7 @@ window.location.href=location.hash.replace('#','?')}</script> Redirecting...
   end
 
   defp recv_auth_token(client) do
-    {:ok, first} = :gen_tcp.recv(client, 0) |> IO.inspect()
+    {:ok, first} = :gen_tcp.recv(client, 0)
     ["GET", path | _] = String.split(first)
     {:ok, %URI{}=uri} = URI.new(path)
     case URI.decode_query(uri.query) do
@@ -206,7 +206,7 @@ end
 defmodule Chat do
   @cuss """
   javascript
-""" |> String.trim |> String.split |> IO.inspect |> MapSet.new
+""" |> String.trim |> String.split |> MapSet.new
 
   def censor("NotLikeThis"), do: "x.x"
   def censor(word) do

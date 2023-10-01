@@ -38,7 +38,7 @@ defmodule Progress.Hourglass do
   defp tick_up({past, %CurWin{} = now}, mode) do
     now_ = CurWin.tick(now, mode)
     if CurWin.fin?(now_) do
-      {_, %CurWin{}} = Trend.add(past, now_)
+      {Trend.add(past, now_), CurWin.reset(now)}
     else
       {past, now_}
     end

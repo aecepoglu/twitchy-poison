@@ -3,102 +3,61 @@ defmodule TrendTest do
   alias Progress.Trend, as: Trend
   alias Progress.CurWin, as: CurWin
 
-  @idle nil
-
-  test "Trend.make initial state" do
-    trend = Trend.make(3)
-    |> Trend.to_list()
-    assert trend == [ @idle, @idle, @idle ]
-  end
-
   test "Trend.add sanitises the input" do
     elems = Trend.make(3)
-    |> Trend.add(%CurWin{done: 13}) |> elem(0)
+    |> Trend.add(%CurWin{done: 13})
     |> Trend.to_list
-    assert elems == [{8, 0}, @idle, @idle]
+    assert elems == [{:work, 8}]
   end
 
-  test "Trend.add rolls around, keeping the last $size" do
-    trend = Trend.make(3)
-    |> Trend.add(%CurWin{done: 1, broke: 3}) |> elem(0)
-    |> Trend.add(%CurWin{done: 2, broke: 4}) |> elem(0)
-    |> Trend.add(%CurWin{done: 3, broke: 1}) |> elem(0)
-    |> Trend.add(%CurWin{done: 4, broke: 0}) |> elem(0)
-    |> Trend.add(%CurWin{done: 5, broke: 3}) |> elem(0)
+  test "Trend.add propagates the update" do
+    elems = Trend.make(3)
+    |> Trend.add(%CurWin{})
+    |> Trend.add(%CurWin{})
+    |> Trend.add(%CurWin{})
+    |> Trend.add(%CurWin{})
+    |> Trend.add(%CurWin{done: 19, broke: 0})
     |> Trend.to_list
-
-    assert trend == [{5, 3}, {4, 0}, {3, 1}]
+    assert elems == [{:work, 8}, {:work, 8}, {:work, 3}, :idle, :idle]
   end
 
   test "Trend stats give sums of each" do
     trend = Trend.make(3)
-    |> Trend.add(%CurWin{done: 1, broke: 3}) |> elem(0)
-    |> Trend.add(%CurWin{done: 2, broke: 4}) |> elem(0)
-    |> Trend.add(%CurWin{done: 3, broke: 1}) |> elem(0)
-    |> Trend.add(%CurWin{done: 4, broke: 0}) |> elem(0)
-    |> Trend.add(%CurWin{done: 5, broke: 3}) |> elem(0)
+    |> Trend.add(%CurWin{done: 1, broke: 3})
+    |> Trend.add(%CurWin{done: 0, broke: 0})
+    |> Trend.add(%CurWin{done: 3, broke: 1})
+    |> Trend.add(%CurWin{done: 4, broke: 0})
+    |> Trend.add(%CurWin{done: 5, broke: 3})
     |> Trend.stats
 
-    assert trend == {12, 4}
-  end
-
-  test "stores work and the breaks" do
-    win =
-      CurWin.make(8)
-      |> CurWin.tick(:work, 4)
-      |> CurWin.work(3)
-      |> CurWin.tick(:break, 2)
-
-    trend =
-      Trend.make(5)
-      |> Trend.add(win) |> elem(0)
-      |> Trend.to_list()
-
-    assert trend == [{3, 2}, @idle, @idle, @idle, @idle]
-  end
-
-  test "adding carries over extra stuff" do
-    now = CurWin.make(8) |> CurWin.work(19)
-    trend = Trend.make(5)
-    {trend, now} = Trend.add(trend, now)
-    {trend, now} = Trend.add(trend, now)
-    {trend, now} = Trend.add(trend, now)
-    {trend, now} = Trend.add(trend, now)
-    {trend, _  } = Trend.add(trend, now)
-    assert Trend.to_list(trend) == [{0, 0}, {0, 0}, {3, 0}, {8, 0}, {8, 0}]
-  end
-
-  test "count stats up until the beginning of last break" do
-    work = CurWin.make(2) |> CurWin.work(1)
-    break = CurWin.make(2) |> CurWin.tick(:break)
-    stats = Trend.make(10)
-    |> Trend.add(work ) |> elem(0)
-    |> Trend.add(work ) |> elem(0)
-    |> Trend.add(work ) |> elem(0)
-    |> Trend.add(work ) |> elem(0)
-    |> Trend.add(break) |> elem(0)
-    |> Trend.add(break) |> elem(0)
-    |> Trend.add(break) |> elem(0)
-    |> Trend.add(work ) |> elem(0)
-    |> Trend.recent_stats()
-
-    assert stats == {1, 3}
+    assert trend == %{work: 1, idle: 1, break: 3}
   end
 
   test "count stats up until the very beginning" do
-    work = CurWin.make(2) |> CurWin.work(1)
-    break = CurWin.make(2) |> CurWin.tick(:break)
-    stats = Trend.make(10)
-    |> Trend.add(work ) |> elem(0)
-    |> Trend.add(break ) |> elem(0)
-    |> Trend.add(break ) |> elem(0)
-    |> Trend.add(break ) |> elem(0)
-    |> Trend.add(break ) |> elem(0)
-    |> Trend.add(work ) |> elem(0)
-    |> Trend.add(work ) |> elem(0)
-    |> Trend.recent_stats()
+    1..50
+    |> Enum.each(fn _ -> parametrised_test() end)
+  end
+  defp parametrised_test() do
+    idle = CurWin.make(2)
+    work =  idle |> CurWin.work(1)
+    break = idle |> CurWin.tick(:break)
+    activities = %{idle: idle, work: work, break: break}
 
-    assert stats == {2, 4}
+    len = Enum.random(5..15)
+    trend = Trend.make(len)
+    activity = 1..len
+             |> Enum.map(fn _ -> Enum.random([:idle, :work, :break]) end)
+    stats = activity
+    |> Enum.map(& activities[&1])
+    |> Enum.reduce(trend, &Trend.add(&2, &1))
+    |> Trend.stats
+
+    expected = Map.merge(
+      %{work: 0, break: 0, idle: 0},
+      activity |> Enum.reverse
+               |> Enum.take(len)
+               |> Enum.frequencies())
+    assert stats == expected
   end
 end
 
