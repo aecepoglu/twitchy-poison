@@ -13,9 +13,9 @@ defmodule Progress.Trend do
 
   def add(trend, %CurWin{done: d, broke: b}) do
     case {d, b} do
-      {0, 0} -> [:idle | trend]
+      {0, 0} -> [:idle                | trend]
       {w, 0} -> [{:work, min(@mn, w)} | add_(trend, max(w - @mn, 0))]
-      _      -> [:break | trend]
+      {w, _} -> [:break               | add_(trend, max(w - @mn, 0))]
     end
   end
   defp add_(list            , 0), do: list

@@ -21,6 +21,17 @@ defmodule TrendTest do
     assert elems == [{:work, 8}, {:work, 8}, {:work, 3}, :idle, :idle]
   end
 
+  test "Trend.add propagates the update after applying the non-work portion" do
+    elems = Trend.make(3)
+    |> Trend.add(%CurWin{})
+    |> Trend.add(%CurWin{})
+    |> Trend.add(%CurWin{})
+    |> Trend.add(%CurWin{})
+    |> Trend.add(%CurWin{done: 19, broke: 99})
+    |> Trend.to_list
+    assert elems == [:break, {:work, 8}, {:work, 3}, :idle, :idle]
+  end
+
   test "Trend stats give sums of each" do
     trend = Trend.make(3)
     |> Trend.add(%CurWin{done: 1, broke: 3})
