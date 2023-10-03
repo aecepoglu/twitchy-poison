@@ -131,7 +131,7 @@ defmodule Twitch.IrcClient do
     {replies, state_} = Enum.reduce(lines, {[], state},
       fn x, {replies, state_} ->
         {reply, state__} = incoming(x, state_)
-        {[reply | replies], state_}
+        {[reply | replies], state__}
       end)
     case {Enum.filter(replies, & &1 != nil), state_} do
       {[], s} -> {:ok, s}

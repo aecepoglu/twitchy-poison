@@ -180,16 +180,16 @@ defmodule FlowState do
     Progress.Hourglass.past(m.hg)
     |> suggest_break_len()
   end
-  def need_break?(%CircBuf{}=past, %Progress.CurWin{}=now) do
+  def need_break?(past, %Progress.CurWin{}=now) do
     (now.broke == 0) && (suggest_break_len(past) > 0)
   end
-  def suggest_break_len(%CircBuf{}=past) do
-    {recent_work, recent_rest} = Progress.Trend.recent_stats(past)
-    if recent_rest * @factor < recent_work do
+  def suggest_break_len(past) do
+    %{break: b, idle: _, work: w} = Progress.Trend.recent_stats(past)
+    if b * @factor < w do
       0
     else
-      {work, rest} = Progress.Trend.stats(past)
-      (floor(work / 3) - rest)
+      %{break: b, idle: _, work: w} = Progress.Trend.stats(past)
+      (floor(w / 3) - b)
       |> then(& &1 * 60)
       |> max(0)
     end

@@ -1,6 +1,8 @@
 defmodule Hub do
   use GenServer
 
+  @ignore_ticks false
+
   def start_link(_) do
     GenServer.start_link(__MODULE__, nil, name: :hub)
   end
@@ -13,10 +15,10 @@ defmodule Hub do
   end
 
   @impl true
-  #def handle_cast(event, state) when event in [:tick_minute, :tick_second] do
-  #  Model.update(state, event)
-  #  |> noreply
-  #end
+  def handle_cast(event, state) when event in [:tick_minute, :tick_second] and @ignore_ticks do
+    Model.update(state, event)
+    |> noreply
+  end
   def handle_cast(event, state) do
     Model.update(state, event)
     |> tap(&Model.render/1)

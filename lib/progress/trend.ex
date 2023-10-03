@@ -40,9 +40,10 @@ defmodule Progress.Trend do
 
   def to_list(x), do: x
   def size(x), do: length(x)
+  def id(x), do: length(x)
 
   def string(x, n) do
-    CircBuf.take(x, n)
+    Enum.take(x, n)
     |> Enum.map(&str/1)
     |> Enum.join("")
     |> String.reverse
@@ -63,14 +64,11 @@ defmodule Progress.Trend do
   defp recent([h | t], acc), do: recent(t, [category(h) | acc])
   defp recent([], acc), do: acc
 
-  def id(past) do
-    CircBuf.count_while(past, & &1 == 0)
-  end
 
   defp category({:work, _}), do: :work
   defp category(x),          do: x
 
-  defp str({w, 0}), do: @bloks[w]
-  defp str({_, _}), do: "▀"
-  defp str(nil),    do: "-"
+  defp str({:work, w}), do: @bloks[w]
+  defp str(:break), do: "▀"
+  defp str(:idle), do: " "
 end

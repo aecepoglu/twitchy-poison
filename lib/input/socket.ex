@@ -92,6 +92,7 @@ defmodule Input.Socket do
   defp process(["putchores" | x]), do: Hub.put_chores(x)
   defp process(["debug"]),         do: cast(:debug)
   defp process(["hello"]),         do: {:ok, ["world"]}
+  defp process(["refresh"]),       do: cast(:refresh)
   defp process(["sum" | nums]),    do: {:ok, [nums
                                               |> Enum.map(&String.to_integer/1)
                                               |> Enum.reduce(0, & &1 + &2)
