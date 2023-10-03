@@ -1,20 +1,18 @@
 defmodule Chore do
   use Agent
 
-  defstruct [:label]
-  def make(label), do: %__MODULE__{label: label}
+  defstruct [:label, :category, :duration]
+  def make(duration, category, label), do: %__MODULE__{
+    duration: duration,
+    category: category,
+    label: label,
+  }
 
   def start_link(_) do
-    list = [
-      Chore.make("chore 1"),
-      Chore.make("chore 2"),
-      Chore.make("chore 3"),
-    ]
-    Agent.start_link(fn -> list end, name: __MODULE__)
+    Agent.start_link(fn -> [] end, name: __MODULE__)
   end
 
-  def put_lines(lines) do
-    chores = Enum.map(lines, &deserialise/1)
+  def put(chores) do
     Agent.update(__MODULE__, fn _ -> chores end)
   end
   def get_lines() do
@@ -34,6 +32,15 @@ defmodule Chore do
     Agent.get_and_update(__MODULE__, f)
   end
 
-  defp serialize(x), do: x.label
-  defp deserialise(x), do: %Chore{label: x}
+  defp serialize(%Chore{}=x), do: "#{x.duration} #{x.category} #{x.label}"
+  def deserialise(line) when is_binary(line) do
+    with [dur_str, cat, word | words] <- String.split(line, " "),
+         {dur, _} <- Integer.parse(dur_str) do
+      %Chore{
+        label: [word | words] |> Enum.join(" "),
+        duration: dur,
+        category: cat,
+      }
+    end
+  end
 end

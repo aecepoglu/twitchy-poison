@@ -16,8 +16,12 @@ defmodule Alarm do
   def delete(list, %Alarm{}=elem), do: Enum.filter(list, & &1 != elem)
   def delete(list, id), do: Enum.filter(list, & &1.id == id)
 
-  def add(list, new) when new.id == nil, do: add_(list, new)
-  def add(list, new) do
+  def add_many(alarms, list2) do
+    Enum.reduce(list2, alarms, &add(&2, &1))
+  end
+
+  def add(list, %Alarm{}=new) when new.id == nil, do: add_(list, new)
+  def add(list, %Alarm{}=new) do
     case Enum.split_with(list, & &1.id == new.id) do
       {[h|_], _} when h.later >= new.later -> list
       {_    , rest}                    -> add_(rest, new)
@@ -66,11 +70,10 @@ defmodule Alarm do
   def snooze(%Alarm{}=x), do: %{x | later: x.snooze}
   def snooze([h | t]), do: add(t, snooze(h))
 
-  def render_tmp(list, _size), do:
-    list
-    |> Enum.map(& "#{&1.id}:#{&1.label}(#{&1.later}+#{&1.snooze})")
-    |> Enum.join(", ")
-    |> IO.puts
+  def render([], _),               do: "-"
+  def render([h | _], {width, _}), do: "#{h.id}:#{h.label} #{h.later}'"
+                                       |> String.split_at(width)
+                                       |> elem(0)
 end
 
 defmodule Alarm.Actions do

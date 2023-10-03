@@ -50,9 +50,8 @@ defmodule Progress.Hourglass do
     "#{past_} #{now_}"
   end
 
-  def render(x, size) do
+  def render(x, {width, height}) do
     import IO.ANSI
-    cursor(1, 1) <> clear_line() <> string(x, size)
-    |> IO.write
+    cursor(1, 1) <> clear_line() <> string(x, {width - 2, height})
   end
 end

@@ -22,6 +22,7 @@ defmodule Model do
       todo: Backup.get(:todo_backup),
       size: get_win_size(),
     }
+    |> add_initial_alarms
   end
 
   def ask(:task_get_cur, m), do: {:ok, Todo.dump_cur(m.todo)}
@@ -84,9 +85,15 @@ defmodule Model do
   defp task_update(todo, [:persist]),        do: {0 , Todo.persist!(todo)}
 
   defp add_new_alerts(m) do
-    aa = Hourglass.alerts(m.hg)
-    |> Enum.reduce(m.alarms, & Alarm.add(&2, &1))
-    %Model{m | alarms: aa}
+    Map.update!(m, :alarms, &Alarm.add_many(&1, Hourglass.alerts(m.hg)))
+  end
+  defp add_initial_alarms(m) do
+    new = if m.todo == Todo.empty() do
+      [Alarm.make(:no_todos, label: "Please define a task", snooze: 0)]
+    else
+      []
+    end
+    %{m | alarms: Alarm.add_many(m.alarms, new)}
   end
 
   def set_popup(%Model{popup: p}=m, overwrite: false) when not(is_nil(p)), do: m
@@ -116,9 +123,6 @@ defmodule Model do
     IO.write("DEBUG\n\r")
     {width, height} = m.size
     IO.write("size #{width}x#{height}\n\r")
-    IO.write("alarms ")
-    Alarm.render_tmp(m.alarms, m.size)
-    IO.write("\n\r")
   end
   def render(%Model{mode: :breakprep}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
@@ -156,10 +160,15 @@ defmodule Model do
     IO.write("\n\rremainging unread: #{unread}")
   end
 
-  defp render_work(%Model{size: {_, height}}=m, embedded: embed?) do
-    Hourglass.render(m.hg, m.size)
-    IO.write("\n\r")
-    Todo.render(m.todo, m.size)
+  defp render_work(%Model{size: {width, height}}=m, embedded: embed?) do
+    if width < 90 do
+      Hourglass.render(m.hg, m.size)
+    else
+      Hourglass.render(m.hg, {60, height})
+      <> " " <> Alarm.render(m.alarms, {width - 61, height})
+    end <> "\n\r" |> IO.write
+
+    Todo.render(m.todo, m.size) |> IO.puts
 
     notification = if m.notification && not(embed?) do
       IO.ANSI.clear_line() <> "TODO show new msg notification here"

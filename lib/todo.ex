@@ -142,7 +142,6 @@ defmodule Todo do
     |> strings(width, color: true)
     |> Enum.map(fn x -> IO.ANSI.clear_line <> x end)
     |> Enum.join("\n\r")
-    |> IO.puts
   end
 
   def upsert_head([_ | t], h), do: [h | t]

@@ -12,8 +12,7 @@ end
 
 if test $argv[1] = multi
 	multiline $argv[2..] \
-	| sed -e '$ ! s/^/... /' \
-	| socat /tmp/goldfish.sock -
+	| sed -e '$ ! s/^/... /'
 else
 	echo $argv
 end | socat /tmp/goldfish.sock -

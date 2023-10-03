@@ -39,7 +39,6 @@ defmodule Hub do
   def tick(), do: GenServer.cast(:hub, :tick_minute)
   def task_disband(), do: GenServer.cast(:hub, :task_disband)
   def get_cur_task(), do: GenServer.call(:hub, :task_get_cur)
-  def put_chores(lines), do: GenServer.cast(Chore, {:put, lines})
   def action_1(), do: GenServer.cast(:hub, :action_1)
   def action_2(), do: GenServer.cast(:hub, :action_2)
   def refresh(), do: GenServer.cast(:hub, :refresh)

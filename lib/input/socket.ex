@@ -1,6 +1,10 @@
 defmodule Input.Socket.Message do
-  def parse(str) when is_binary(str) do
-    String.split(str, " ")
+  def parse([line | lines]) do
+    [String.split(line, " ") | lines]
+    |> identify
+  end
+  def parse(line) when is_binary(line) do
+    String.split(line, " ")
     |> identify
   end
   defp identify(["irc", "connect", ch]), do: {:irc, :connect, ch}
@@ -9,6 +13,11 @@ defmodule Input.Socket.Message do
   defp identify(["irc", "part", ch, room]), do: {:irc, :part, ch, room}
   defp identify(["irc", "users", ch, room]), do: {:irc, :users, ch, room}
   defp identify(["irc", "log", ch, room, user]), do: {:irc, :log, ch, room, user}
+  defp identify([["chores", "put"] | lines]) do
+    chores = Enum.map(lines, &Chore.deserialise/1)
+    {:chores, :put, chores}
+  end
+  defp identify(["chores", "get"]), do: {:chores, :get}
 end
 defmodule Input.Socket do
   require Logger
@@ -89,7 +98,6 @@ defmodule Input.Socket do
   defp process(["puthead" | x]),   do: cast([:task, :put_cur, x])
   defp process(["quit"]),          do: :init.stop()
   defp process(["curtask"]),       do: Hub.get_cur_task()
-  defp process(["putchores" | x]), do: Hub.put_chores(x)
   defp process(["debug"]),         do: cast(:debug)
   defp process(["hello"]),         do: {:ok, ["world"]}
   defp process(["refresh"]),       do: cast(:refresh)
@@ -102,14 +110,19 @@ defmodule Input.Socket do
   defp process(["auto-update no"]),  do: cast({:auto_update, false})
   defp process(["restart socket"]), do: {:error, :restart_socket}
   defp process(["rewind " <> n]), do: cast({:rewind, String.to_integer(n)})
-  defp process([h|_]), do: process(Message.parse(h))
-  defp process({:irc, :connect, "twitch"}), do: IRC.connect(:twitch)
-  defp process({:irc, :disconnect, "twitch"}), do: IRC.disconnect(:twitch)
-  defp process({:irc, :join, "twitch", room}), do: IRC.join(:twitch, room)
-  defp process({:irc, :part, "twitch", room}), do: IRC.part(:twitch, room)
-  defp process({:irc, :users, "twitch", room}), do: IRC.list_users(:twitch, room)
-  defp process({:irc, :log, "twitch", room, user}), do: IRC.log_user(:twitch, room, user)
-  defp process([]),               do: {:error, :unknown_command}
+  defp process([line]),      do: line  |> Message.parse |> process_parsed
+  defp process([_|_]=lines), do: lines |> Message.parse |> process_parsed
+  defp process_parsed({:irc, :connect, "twitch"}), do: IRC.connect(:twitch)
+  defp process_parsed({:irc, :disconnect, "twitch"}), do: IRC.disconnect(:twitch)
+  defp process_parsed({:irc, :join, "twitch", room}), do: IRC.join(:twitch, room)
+  defp process_parsed({:irc, :part, "twitch", room}), do: IRC.part(:twitch, room)
+  defp process_parsed({:irc, :users, "twitch", room}), do: IRC.list_users(:twitch, room)
+  defp process_parsed({:irc, :log, "twitch", room, user}), do: IRC.log_user(:twitch, room, user)
+  defp process_parsed({:chores, :get}),         do: {:ok, Chore.get_lines}
+  defp process_parsed({:chores, :put, chores}) do
+    :ok = Chore.put(chores)
+    {:ok, []}
+  end
 
   defp cast(msg), do: GenServer.cast(:hub, msg)
 
