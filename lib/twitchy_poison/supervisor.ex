@@ -26,7 +26,6 @@ defmodule TwitchyPoison.Supervisor do
       ),
       # Input.Keyboard,
       Hub,
-      Chore,
     ]
   def list_children(:repl), do: @common
 

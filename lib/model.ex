@@ -4,7 +4,8 @@ defmodule Model do
   defstruct [:hg,
              :todo,
              :size,
-             alarms: [],
+             alarms: Alarm.empty(),
+             chores: Chore.empty(),
              popup: nil,
              mode: :work,
              tmp: nil,
@@ -23,17 +24,19 @@ defmodule Model do
       size: get_win_size(),
     }
     |> add_initial_alarms
+    |> add_chore_alarms
   end
 
-  def ask(:task_get_cur, m), do: {:ok, Todo.dump_cur(m.todo)}
+  def ask(:task_get_cur, m), do: {:ok, m.todo |> Todo.dump_cur}
   def ask(:options, m), do: {:ok, m.options}
   def ask(:progress, m), do: {:ok, m.hg}
+  def ask(:chores, m), do: {:ok, m.chores |> Chore.serialise}
 
   def update(m, :tick_minute) do
     m
     |> tick(:hg)
     |> tick(:alarms)
-    |> add_new_alerts
+    |> add_hg_alarms
     |> set_popup(overwrite: false)
   end
   def update(m, :tick_second) when m.mode == :break, do: %{m | tmp: Break.tick(m.tmp)}
@@ -50,20 +53,25 @@ defmodule Model do
   def update(m, action) when action in [:action_1, :action_2, :escape]
                         and m.popup != nil, do: Popup.act(m.popup, action, m)
   def update(m, :refresh), do: %{m | size: get_win_size()}
-  def update(m, {:dir, :up}) when m.mode == :breakprep, do: %{m | tmp: Break.make_longer(m.tmp)}
-  def update(m, {:dir, :down}) when m.mode == :breakprep, do: %{m | tmp: Break.make_shorter(m.tmp)}
+  def update(m, {:dir, :up}) when m.mode == :breakprep, do: %{m | tmp: Break.make_longer(m.tmp) |> Break.set_chore(m.chores)}
+  def update(m, {:dir, :down}) when m.mode == :breakprep, do: %{m | tmp: Break.make_shorter(m.tmp) |> Break.set_chore(m.chores)}
+  def update(m, {:dir, :right}) when m.mode == :breakprep do
+    chores = m.chores |> Chore.rotate
+    %{m | tmp: m.tmp |> Break.set_chore(chores), chores: chores}
+  end
   def update(m, :escape), do: %{m | mode: :work, tmp: nil}
   def update(m, {:dir, _}), do: m
 
   def update(m, :start_break) when m.mode == :work, do:
     %{m |
       mode: :breakprep,
-      tmp: Break.make(FlowState.suggest(m), Chore.pop())
+      tmp: Break.make(FlowState.suggest(m))
       }
   def update(m, :start_break) when m.mode == :breakprep, do: %{m | mode: :break}
   def update(m, :start_break) when m.mode == :break, do: %{m | mode: :work}
 
   def update(m, :debug), do: %{m | mode: :debug}
+  def update(m, {:put_chores, x}), do: %{m | chores: x}
 
   def update(m, :focus_chat) when m.notification != nil, do: %{m | mode: :chat}
   def update(m, {:option, key, value}) do
@@ -84,16 +92,24 @@ defmodule Model do
   defp task_update(todo, [:rot, mode]),      do: {0 , Todo.rot(todo, mode)}
   defp task_update(todo, [:persist]),        do: {0 , Todo.persist!(todo)}
 
-  defp add_new_alerts(m) do
+  defp add_hg_alarms(m) do
     Map.update!(m, :alarms, &Alarm.add_many(&1, Hourglass.alerts(m.hg)))
   end
   defp add_initial_alarms(m) do
-    new = if m.todo == Todo.empty() do
-      [Alarm.make(:no_todos, label: "Please define a task", snooze: 0)]
+    if m.chores == Alarm.empty() do
+      a = Alarm.make(:no_todos, label: "Please define a task", snooze: 0)
+      %{m | alarms: Alarm.add(m.alarms, a)}
     else
-      []
+      m
     end
-    %{m | alarms: Alarm.add_many(m.alarms, new)}
+  end
+  defp add_chore_alarms(m) do
+    if m.chores == Alarm.empty() do
+      a = Alarm.make(:no_chores, label: "Dont forget to load up your chores", snooze: 0)
+      %{m | alarms: Alarm.add(m.alarms, a)}
+    else
+      m
+    end
   end
 
   def set_popup(%Model{popup: p}=m, overwrite: false) when not(is_nil(p)), do: m

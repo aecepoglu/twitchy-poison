@@ -118,11 +118,8 @@ defmodule Input.Socket do
   defp process_parsed({:irc, :part, "twitch", room}), do: IRC.part(:twitch, room)
   defp process_parsed({:irc, :users, "twitch", room}), do: IRC.list_users(:twitch, room)
   defp process_parsed({:irc, :log, "twitch", room, user}), do: IRC.log_user(:twitch, room, user)
-  defp process_parsed({:chores, :get}),         do: {:ok, Chore.get_lines}
-  defp process_parsed({:chores, :put, chores}) do
-    :ok = Chore.put(chores)
-    {:ok, []}
-  end
+  defp process_parsed({:chores, :get}),         do: GenServer.call(:hub, :chores)
+  defp process_parsed({:chores, :put, chores}), do: cast({:put_chores, chores})
 
   defp cast(msg), do: GenServer.cast(:hub, msg)
 

@@ -13,6 +13,8 @@ defmodule Alarm do
                 label: label}
   end
 
+  def empty(), do: []
+
   def delete(list, %Alarm{}=elem), do: Enum.filter(list, & &1 != elem)
   def delete(list, id), do: Enum.filter(list, & &1.id == id)
 

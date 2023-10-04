@@ -8,31 +8,11 @@ defmodule Chore do
     label: label,
   }
 
-  def start_link(_) do
-    Agent.start_link(fn -> [] end, name: __MODULE__)
-  end
+  def empty(), do: []
+  def rotate([h | t]), do: t ++ [h]
 
-  def put(chores) do
-    Agent.update(__MODULE__, fn _ -> chores end)
-  end
-  def get_lines() do
-    get()
-    |> Enum.map(&serialize/1)
-  end
-
-  def get(), do: Agent.get(__MODULE__, & &1)
-  def add(x), do: Agent.update(__MODULE__, & [x | &1])
-  def pop() do
-    f = fn list ->
-      case list do
-        [h | t] -> {h, t}
-        [] -> {nil, []}
-      end
-    end
-    Agent.get_and_update(__MODULE__, f)
-  end
-
-  defp serialize(%Chore{}=x), do: "#{x.duration} #{x.category} #{x.label}"
+  def serialise(list) when is_list(list), do: Enum.map(list, &serialise/1)
+  def serialise(%Chore{}=x), do: "#{x.duration} #{x.category} #{x.label}"
   def deserialise(line) when is_binary(line) do
     with [dur_str, cat, word | words] <- String.split(line, " "),
          {dur, _} <- Integer.parse(dur_str) do
@@ -43,4 +23,7 @@ defmodule Chore do
       }
     end
   end
+
+  def string(%Chore{label: l}), do: l
+  def string(nil), do: "-"
 end
