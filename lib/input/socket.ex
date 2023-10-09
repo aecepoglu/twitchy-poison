@@ -13,6 +13,7 @@ defmodule Input.Socket.Message do
   defp identify(["irc", "part", ch, room]), do: {:irc, :part, ch, room}
   defp identify(["irc", "users", ch, room]), do: {:irc, :users, ch, room}
   defp identify(["irc", "log", ch, room, user]), do: {:irc, :log, ch, room, user}
+  defp identify(["key", k]), do: {:keypress, k}
   defp identify([["chores", "put"] | lines]) do
     chores = Enum.map(lines, &Chore.deserialise/1)
     {:chores, :put, chores}
@@ -120,11 +121,15 @@ defmodule Input.Socket do
   defp process_parsed({:irc, :log, "twitch", room, user}), do: IRC.log_user(:twitch, room, user)
   defp process_parsed({:chores, :get}),         do: GenServer.call(:hub, :chores)
   defp process_parsed({:chores, :put, chores}), do: cast({:put_chores, chores})
+  defp process_parsed({:keypress, k}) do
+    Input.Keyboard.report(k)
+    :ok
+  end
 
   defp cast(msg), do: GenServer.cast(:hub, msg)
 
   defp read_line(socket) do
-    :gen_tcp.recv(socket, 0)
+    :gen_tcp.recv(socket, 0) |> IO.inspect
   end
 
   defp respond({:error, :closed}, _) do

@@ -41,21 +41,15 @@ defmodule Input.Keyboard do
     {:stop, "my mom told me so", port}
   end
 
-  defp report(key) do
-    case key do
-      "t" -> Hub.tick()
-      "r" -> Hub.refresh()
-      "1" -> Hub.action_1()
-      "2" -> Hub.action_2()
-      "b" -> Hub.start_break()
-      :arrow_up -> Hub.dir_move(:up)
-      :arrow_down -> Hub.dir_move(:down)
-      :escape -> Hub.escape()
-      _ -> nil
-    end
-    key
-    # GenServer.cast(:kbd_listener, {:keypress, key})
-  end
+  def report("t"), do: Hub.tick()
+  def report("r"), do: Hub.refresh()
+  def report("1"), do: Hub.action_1()
+  def report("2"), do: Hub.action_2()
+  def report("b"), do: Hub.start_break()
+  def report("escape"), do: Hub.escape();
+  def report("up"), do: Hub.dir_move(:up);
+  def report("down"), do: Hub.dir_move(:down);
+  def report(_), do: nil
 
   defp translate("\d"), do: :backspace
   defp translate("\r"), do: :enter
