@@ -10,21 +10,11 @@ defmodule Progress.Hourglass do
 
   def past({x, _}), do: x
   def now({_, x}), do: x
+  def duration({past, now}), do: length(past) * now.dur
 
   def tick(model, mode) do
     model
     |> tick_up(mode)
-  end
-
-  def alerts({past, now}) do
-    # TODO [{now.done, now.broke} | Trend.take(past, 10)] |> analyse
-    cond do
-      Trend.idle_too_long?(past) && CurWin.idle?(now) ->
-        [Alarm.make("idle", label: "split your task")]
-      Trend.worked_too_long?(past) && now.broke == 0 ->
-        [Alarm.make("rest", label: "take a break")]
-      true -> []
-    end
   end
 
   def progress({past, now}, dv), do: {past, CurWin.work(now, dv)}

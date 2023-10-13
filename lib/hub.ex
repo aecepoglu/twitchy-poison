@@ -11,7 +11,7 @@ defmodule Hub do
   def init(nil) do
     {:ok, _tref1} = :timer.send_interval(:timer.seconds(60), :tick_minute)
     {:ok, _tref2} = :timer.send_interval(:timer.seconds(1), :tick_second)
-    {:ok, Model.make()}
+    {:ok, Model.make(create_initial_reminders: true)}
   end
 
   @impl true
@@ -39,8 +39,6 @@ defmodule Hub do
   def tick(), do: GenServer.cast(:hub, :tick_minute)
   def task_disband(), do: GenServer.cast(:hub, :task_disband)
   def get_cur_task(), do: GenServer.call(:hub, :task_get_cur)
-  def action_1(), do: GenServer.cast(:hub, :action_1)
-  def action_2(), do: GenServer.cast(:hub, :action_2)
   def refresh(), do: GenServer.cast(:hub, :refresh)
   def mode(val), do: GenServer.cast(:hub, {:mode, val})
   def start_break(), do: GenServer.cast(:hub, :start_break)

@@ -5,6 +5,7 @@ defmodule Geometry do
     |> to_string
   end
 end
+
 defmodule Bordered do
   defp fill(txt, width, fill) do
     k = String.length(txt)
@@ -40,28 +41,45 @@ defmodule Bordered do
 end
 
 defmodule Popup do
-  defstruct [:label, :actions]
+  defstruct [:id, :label, actions: %{}, snooze: 0]
 
-  def make(%Alarm{}=alarm, actions: actions), do: %Popup{
-    label: alarm.label,
-    actions: actions
+  def make(id, label, opts \\ []) do
+    %Popup{
+      id: id,
+      label: label,
+      snooze: Keyword.get(opts, :snooze, 0),
+      actions: default_actions(),
+    }
+    |> set_actions()
+  end
+
+  def default_actions(), do: %{
+    action_2: {"delete", [&Popup.Actions.delete/2]},
+    escape:   {"close",  [&Popup.Actions.rotate/2]},
   }
 
-  def render(popup, {width, height}) do
+  def set_actions(%__MODULE__{snooze: t, actions: aa}=popup) when t > 0 do
+    x = %{action_1: {"snooze #{t}'",  [&Popup.Actions.delete/2, &Popup.Actions.snooze/2]}}
+    %{popup | actions: Map.merge(aa, x)}
+  end
+  def set_actions(%__MODULE__{}=popup), do: popup
+
+  def render(%Popup{}=popup, {width, height}, remaining) do
     {p_width, p_height} = {min(80, floor(width * 0.8)), 5}
     scroll = 0
     x0 = (width - p_width) / 2   |> max(0) |> floor
     y0 = (height - p_height) / 2 |> max(0) |> floor
 
     actions = popup.actions
-    |> Enum.with_index(fn {name, _}, i -> "(#{i + 1}. #{name})" end)
+    |> Map.to_list
+    |> Enum.map(fn {key, {name, _}} -> "(#{key} => #{name})" end)
     |> Enum.join(" ")
 
     body = [
-      "#{width}x#{height}," <> popup.label,
+      popup.label,
       "",
       actions
-    ]
+    ] ++ (if remaining > 0 do ["#{remaining} more popups to view..."] else [] end)
     |> Bordered.rows(p_width)
     |> Bordered.panel(scroll, p_height)
 
@@ -71,15 +89,17 @@ defmodule Popup do
     |> IO.puts
   end
 
-  # TODO this can be entirely dynamic
-  def act(%Popup{actions: actions}, action, model0) do
-    i = case action do
-      :action_1 -> 0
-      :action_2 -> 1
-      :escape -> 2
+  def update(%Popup{actions: actions}=popup, action, model0) do
+    case Map.fetch(actions, action) do
+      {:ok, {_, funs}} -> Enum.reduce(funs, model0, fn f, model -> f.(model, popup) end)
+      _ -> model0
     end
-    Enum.at(actions, i)
-    |> elem(1)
-    |> Enum.reduce(model0, fn f, model -> f.(model) end)
   end
+
+  def new_id?(_, nil), do: true
+  def new_id?(ids, id), do: !MapSet.member?(ids, id)
+
+  def has_id?(list, id), do: Enum.any?(list, & &1.id == id)
+
+  def ids(list), do: list |> Enum.map(& &1.id) |> MapSet.new()
 end

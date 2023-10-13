@@ -24,11 +24,16 @@ defmodule IRC.RoomRegistry do
   end
   def handle_call(:list, _, {pids, _}=state), do: {:reply, Map.keys(pids), state}
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, nil, opts)
+  def start_link([]) do
+    GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
 
-  def fetch(pid, {_,_}=id), do: GenServer.call(pid, {:fetch, id})
+  def get_or_create({_,_}=id) do
+    GenServer.call(__MODULE__, {:get_or_create, id})
+  end
+  def fetch({_,_}=id) do
+    GenServer.call(__MODULE__, {:fetch, id})
+  end
 end
 
 defmodule OAuthServer do
@@ -157,29 +162,34 @@ defmodule Twitch.IrcClient do
   defp incoming([userid, "PRIVMSG", room, ":!hello"], state) do
     {"PRIVMSG #{room} :world @#{username(userid)}", state}
   end
-  defp incoming([userid, "PRIVMSG", room | words], state) do
+  defp incoming([userid, "PRIVMSG", ("#" <> room) | words], state) do
     txt = case words do
       [":" <> h | t] -> [h | t]
       _ -> []
     end |> Enum.map(&Chat.censor/1)
         |> Enum.join(" ")
+
     id = {"twitch", room}
-    pid = GenServer.call(:rooms, {:get_or_create, id})
-    GenServer.cast(pid, {:record, username(userid), txt})
+
+    id
+    |> IRC.RoomRegistry.get_or_create
+    |> IRC.Room.record_chat(username(userid), txt)
+
     Hub.cast({:received_chat_msg, id})
     {nil, state}
   end
-  defp incoming([userid, "JOIN", room], state) do
+  defp incoming([userid, "JOIN", "#" <> room], state) do
     if !MapSet.member?(@bots, userid) do
-      id = {"twitch", room}
-      pid = GenServer.call(:rooms, {:get_or_create, id})
-      GenServer.cast(pid, {:add_user, username(userid)})
+      {"twitch", room}
+      |> IRC.RoomRegistry.get_or_create
+      |> IRC.Room.add_user(username(userid))
     end
     {nil, state}
   end
-  defp incoming([userid, "PART", room], state) do
+  defp incoming([userid, "PART", "#" <> room], state) do
     id = {"twitch", room}
-    case GenServer.call(:rooms, {:fetch, id}) do
+    
+    case IRC.RoomRegistry.fetch(id) do
       {:ok, pid} -> GenServer.cast(pid, {:remove_user, username(userid)})
       _ -> nil
     end
@@ -191,7 +201,10 @@ defmodule Twitch.IrcClient do
   defp incoming([""], state), do: {nil, state}
   defp incoming([], state), do: {nil, state}
   defp incoming(list, state) do
-    IO.inspect(list)
+    txt = Enum.join(list, " ")
+    {"twitch", "-"}
+    |> IRC.RoomRegistry.get_or_create
+    |> IRC.Room.record_chat("-", txt)
     {nil, state}
   end
   defp username(str) do

@@ -41,14 +41,14 @@ defmodule Input.Keyboard do
     {:stop, "my mom told me so", port}
   end
 
-  def report("t"), do: Hub.tick()
+  def report("z"), do: Hub.tick()
   def report("r"), do: Hub.refresh()
-  def report("1"), do: Hub.action_1()
-  def report("2"), do: Hub.action_2()
   def report("b"), do: Hub.start_break()
   def report("escape"), do: Hub.escape();
   def report("up"), do: Hub.dir_move(:up);
   def report("down"), do: Hub.dir_move(:down);
+  def report("1"), do: Hub.cast(:action_1)
+  def report("2"), do: Hub.cast(:action_2)
   def report(_), do: nil
 
   defp translate("\d"), do: :backspace

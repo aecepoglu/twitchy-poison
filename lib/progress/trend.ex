@@ -45,6 +45,7 @@ defmodule Progress.Trend do
   def string(x, n) do
     Enum.take(x, n)
     |> Enum.map(&str/1)
+    |> pad_to(n)
     |> Enum.join("")
     |> String.reverse
   end
@@ -60,10 +61,9 @@ defmodule Progress.Trend do
     recent(trend, [])
     |> stats
   end
-  defp recent([{:work, _} | _], [:break | _]=acc), do: acc
+  defp recent([h | _], [:break | _]=acc) when h != :break, do: acc
   defp recent([h | t], acc), do: recent(t, [category(h) | acc])
   defp recent([], acc), do: acc
-
 
   defp category({:work, _}), do: :work
   defp category(x),          do: x
@@ -71,4 +71,10 @@ defmodule Progress.Trend do
   defp str({:work, w}), do: @bloks[w]
   defp str(:break), do: "▀"
   defp str(:idle), do: " "
+
+  defp pad_to(list, n) do
+    k = n - length(list) |> max(0)
+    pad = Enum.map(1..k, fn _ -> ' ' end)
+    list ++ pad
+  end
 end

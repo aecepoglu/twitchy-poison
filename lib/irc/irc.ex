@@ -3,25 +3,25 @@ defmodule IRC do
 
   @twitch_default_rooms ["whimsicallymade"]
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, nil, opts)
+  def start_link([]) do
+    GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
 
-  def connect(:twitch), do: GenServer.cast(:irc_hub, {:connect, :twitch})
-  def disconnect(:twitch), do: GenServer.cast(:irc_hub, {:disconnect, :twitch})
-  def join(:twitch, room), do: GenServer.cast(:irc_hub, {:join, :twitch, room})
-  def part(:twitch, room), do: GenServer.cast(:irc_hub, {:part, :twitch, room})
+  def connect(:twitch), do: GenServer.cast(__MODULE__, {:connect, :twitch})
+  def disconnect(:twitch), do: GenServer.cast(__MODULE__, {:disconnect, :twitch})
+  def join(:twitch, room), do: GenServer.cast(__MODULE__, {:join, :twitch, room})
+  def part(:twitch, room), do: GenServer.cast(__MODULE__, {:part, :twitch, room})
   def list_users(:twitch, room) do
-    {:ok, pid} = GenServer.call(:rooms, {:fetch, {"twitch", "#"<>room}})
+    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {"twitch", "#"<>room}})
     list = GenServer.call(pid, :list_users)
     {:ok, list}
   end
   def log_user(:twitch, room, user) do
-    {:ok, pid} = GenServer.call(:rooms, {:fetch, {"twitch", "#"<>room}})
+    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {"twitch", "#"<>room}})
     msgs = GenServer.call(pid, {:log_user, user})
     {:ok, msgs}
   end
-  def get(addr), do: GenServer.call(:irc_hub, {:get, addr})
+  def get(addr), do: GenServer.call(__MODULE__, {:get, addr})
 
   @impl true
   def init(nil) do

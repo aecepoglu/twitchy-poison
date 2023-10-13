@@ -2,9 +2,9 @@ defmodule TwitchyPoison.Supervisor do
   @moduledoc false
   @common [
       {DynamicSupervisor, name: IRC.Supervisor, strategy: :one_for_one},
-      {Twitch.Auth, name: :twitch_auth},
-      {IRC, name: :irc_hub},
-      {IRC.RoomRegistry, name: :rooms},
+      Twitch.Auth,
+      IRC,
+      IRC.RoomRegistry,
       {Backup, [:hourglass_backup, Progress.Hourglass.make(), name: :hourglass_backup]},
       {Backup, [:todo_backup, Todo.empty(), name: :todo_backup]},
   ]
@@ -18,15 +18,17 @@ defmodule TwitchyPoison.Supervisor do
         restart: :permanent
       )
     ]
-  def list_children(m) when m in [:dev, :prod] , do: @common ++ [
+  def list_children(m) when m in [:dev, :prod] do
+    socket_path = Application.fetch_env!(:twitchy_poison, :socket_path)
+    @common ++ [
       {Task.Supervisor, name: Input.Socket.TaskSupervisor},
       Supervisor.child_spec(
-        {Task, fn -> Input.Socket.listen("/tmp/goldfish.sock", :filepath, rmfile: true) end},
+        {Task, fn -> Input.Socket.listen(socket_path, :filepath, rmfile: true) end},
         restart: :permanent
       ),
-      # Input.Keyboard,
       Hub,
     ]
+  end
   def list_children(:repl), do: @common
 
   @impl true

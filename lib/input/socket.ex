@@ -11,6 +11,7 @@ defmodule Input.Socket.Message do
   defp identify(["irc", "disconnect", ch]), do: {:irc, :disconnect, ch}
   defp identify(["irc", "join", ch, room]), do: {:irc, :join, ch, room}
   defp identify(["irc", "part", ch, room]), do: {:irc, :part, ch, room}
+  defp identify(["irc", "switch", ch, room]), do: {:irc, :switch, ch, room}
   defp identify(["irc", "users", ch, room]), do: {:irc, :users, ch, room}
   defp identify(["irc", "log", ch, room, user]), do: {:irc, :log, ch, room, user}
   defp identify(["key", k]), do: {:keypress, k}
@@ -20,6 +21,7 @@ defmodule Input.Socket.Message do
   end
   defp identify(["chores", "get"]), do: {:chores, :get}
 end
+
 defmodule Input.Socket do
   require Logger
   alias Input.Socket.Message, as: Message
@@ -129,7 +131,7 @@ defmodule Input.Socket do
   defp cast(msg), do: GenServer.cast(:hub, msg)
 
   defp read_line(socket) do
-    :gen_tcp.recv(socket, 0) |> IO.inspect
+    :gen_tcp.recv(socket, 0)
   end
 
   defp respond({:error, :closed}, _) do

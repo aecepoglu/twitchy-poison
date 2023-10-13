@@ -9,6 +9,8 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 
+#define SOCK_PATH "/tmp/goldfish.sock"
+
 struct termios initial;
 
 const int RESP_LEN = strlen("ok.\r\n");
@@ -73,22 +75,27 @@ void start_kbd_listener() {
 	char buffer[256];
 	char msgbuf[32];
 	int sd = -1;
+	int rc = 99;
 
 	terminit();
 	while (sd < 0) {
-		printf("while:\n");
 		for (int retry = 0; sd < 0 && retry < 10; retry ++) {
 			printf("attempt #%d to connect\n", retry);
 			sleep(1);
-			sd = connect_socket("/tmp/goldfish.sock");
+			sd = connect_socket(SOCK_PATH);
 		}
 		if (sd <= 0) { printf("sd isn't what I expected\n"); return; }
 
-		for (char key; sd > 0 && key != '\x1b';) {
+		for (char key; sd > 0;) {
 			read(1, &key, 1);
-			if ((key >= 'a' && key <= 'z') || (key >= '0' && key <= '9')) {
-				sprintf(msgbuf, "key %c\r\n", key);
-				int rc = send_msg(sd, msgbuf, buffer);
+			if ((key >= 'a' && key <= 'z') || (key >= '0' && key <= '9') || key == 27) {
+				switch (key) {
+					case 27: sprintf(msgbuf, "key %s\r\n", "escape"); break;
+					case 't':  sprintf(msgbuf, "key %s\r\n", "down"); break;
+					case 'n':  sprintf(msgbuf, "key %s\r\n", "up"); break;
+					default:   sprintf(msgbuf, "key %c\r\n", key); break;
+				}
+				rc = send_msg(sd, msgbuf, buffer);
 				if (rc == ERR_RECONNECT) {
 					printf("need to reconnect.\n");
 					sd = -1;
@@ -97,17 +104,18 @@ void start_kbd_listener() {
 			}
 		}
 	}
-	printf("ending...\n");
 
 	if (sd != -1) { close(sd); }
 }
 
 int main(int argc, char *argv[]) {
+	if (argc != 2) { printf("Usage: %s /path/to/rel/twitchy_poison", argv[0]); return 1; }
+
 	int fd[2];
 	child_pid = fork();
 	if (child_pid == 0) {
 		fclose(stdin);
-		const char *bin = "/home/sahip/proj/twitchy-poison/_build/dev/rel/twitchy_poison/bin/twitchy_poison";
+		const char *bin = argv[1];
 		execl(bin, bin, "start");
 	} else {
 		start_kbd_listener();

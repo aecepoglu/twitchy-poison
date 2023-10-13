@@ -15,6 +15,21 @@ defmodule TodoTest do
     ]
   end
 
+  test "rot" do
+    lines = empty()
+    |> add(%Todo{label: "1", done?: true}, :push)
+    |> add(%Todo{label: "2"}, :push)
+    |> add(%Todo{label: "3"}, :push)
+    |> rot(:outside)
+    |> strings(40, color: false)
+
+    assert lines == [
+      "  ○ 2",
+      "  ○ 3",
+      "  ● 1",
+    ]
+  end
+
   test "pop one out of a group" do
     lines = empty()
     |> add(%Todo{label: "1"}, :push)

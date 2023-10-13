@@ -1,16 +1,16 @@
 defmodule Twitch.Auth do
   use GenServer
 
-  def get(), do: GenServer.call(:twitch_auth, :get, 60000)
-  def reset(), do: GenServer.call(:twitch_auth, :reset)
+  def get(), do: GenServer.call(__MODULE__, :get, 60000)
+  def reset(), do: GenServer.call(__MODULE__, :reset)
 
   @impl true
   def init(nil) do
     {:ok, nil}
   end
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, nil, opts)
+  def start_link([]) do
+    GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
 
   @impl true

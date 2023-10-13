@@ -15,12 +15,13 @@ defmodule Progress.CurWin do
   def sub(%__MODULE__{}=x, dv), do:
     %__MODULE__{x | val: 0, done: max(0, x.done - dv), broke: 0}
 
-  def tick(curwin, mode, d_val \\ 1)
-  def tick(%__MODULE__{broke: v} = x, :break, d_val), do:
-    %__MODULE__{x | broke: v + d_val,
-                    val: v + d_val}
-  def tick(%__MODULE__{val: v} = x, _, d_val), do:
-    %__MODULE__{x | val: v + d_val}
+  def tick(%__MODULE__{} = x, mode, d_val \\ 1) do
+    %__MODULE__{x | val: x.val + d_val}
+    |> tick_(mode, d_val)
+  end
+  def tick_(%__MODULE__{} = x, :meeting, d_val), do: %__MODULE__{x | done: x.done + d_val}
+  def tick_(%__MODULE__{} = x, :break  , d_val), do: %__MODULE__{x | broke: x.broke + d_val}
+  def tick_(%__MODULE__{} = x, _       , _    ), do: x
 
   def work(%__MODULE__{} = x, d_val), do: %{x | done: x.done + d_val}
 

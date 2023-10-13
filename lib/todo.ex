@@ -50,16 +50,11 @@ defmodule Todo do
   def join_eager([h1, h2 | t]) when is_list(h1), do: join_eager([(h1 ++ [h2]) | t])
   def join_eager([h1, h2 | t])                 , do: join_eager([[h1, h2] | t])
 
-  def add([h | t]                    , x, :push) when is_list(h), do: [[x | h] | t]
-  def add(list                       , x, :push),                 do: [x | list]
-  def add([h|_]=list                 , x, :next) when is_list(h), do: [add(h, x, :last) | list]
-  def add([%Todo{done?: true}|_]=list, x, :next),                 do: [x | list]
-  def add([h|_]=list                 , x, :next) when is_list(h), do: [add(h, x, :last) | list]
-  def add([h | t]                    , x, :next),                 do: [h | add(t, x, :next)]
-  def add([%Todo{done?: true}|_]=list, x, :last), do: [x | list]
-  def add([[%Todo{done?: true}|_]|_]=list, x, :last), do: [x | list]
-  def add([h | t]                    , x, :last), do: [h | add(t, x, :last)]
-  def add([]                         , x, _), do: [x]
+  def add([h | t]                    , x, :push) when is_list(h), do: [add(h, x, :push) | t]
+  def add([h | t]                    , x, :last) when is_list(h), do: [add(h, x, :last) | t]
+  def add([%Todo{done?: false}=h|t]  , x, :next),                 do: [h | add(t, x, :next)]
+  def add([%Todo{done?: false}=h|t]  , x, :last),                 do: [h | add(t, x, :last)]
+  def add(list                       , x, _),                     do: [x | list]
 
   def pop([[h1, h2] | t]), do: [h1, h2 | t]
   def pop([[hh | ht] | t]), do: [hh | [ht | t]]
@@ -76,6 +71,9 @@ defmodule Todo do
   end
   def mark_done!([h | t]) when is_list(h) , do: [mark_done!(h) | t]
   def mark_done!([]), do: []
+
+  def head_meeting?([%Todo{done?: false, label: "@meeting" <> _} | _]), do: true
+  def head_meeting?(_), do: false
 
   defp join_(a, b), do: enlist(a) ++ enlist(b)
 
