@@ -1,3 +1,34 @@
+defmodule IRC.Badge do
+  @hex "0123456789ABCDEF" |> String.graphemes |> Enum.with_index |> Map.new
+
+  def parse(str) do
+      str
+      |> String.split(";")
+      |> Enum.map(& String.split(&1, "="))
+      |> Enum.map(&identify/1)
+      |> Enum.filter(& &1 != nil)
+  end
+
+  defp identify(["color", x]), do: {:color, color_hex_to_decimal(x)}
+  defp identify(["first-msg", x]), do: {:first, str_to_bool(x)}
+  defp identify(["returning-chatter", x]), do: {:returning, str_to_bool(x)}
+  defp identify(["display-name", x]), do: {:name, x}
+  defp identify(_), do: nil
+
+  defp str_to_bool("0"), do: false
+  defp str_to_bool("1"), do: true
+
+  defp color_hex_to_decimal("#" <> str) do
+    String.graphemes(str)
+    |> Enum.map(&@hex[&1])
+    |> Enum.chunk_every(2)
+    |> Enum.map(fn [a, b] -> a * 16 + b |> to_string end)
+    |> then(& ["38", "2" | &1])
+    |> Enum.join(";")
+    |> then(& "\e[#{&1}m")
+  end
+end
+
 defmodule IRC.RoomRegistry do
   use GenServer
 
@@ -28,12 +59,9 @@ defmodule IRC.RoomRegistry do
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
 
-  def get_or_create({_,_}=id) do
-    GenServer.call(__MODULE__, {:get_or_create, id})
-  end
-  def fetch({_,_}=id) do
-    GenServer.call(__MODULE__, {:fetch, id})
-  end
+  def get_or_create({_,_}=id), do: GenServer.call(__MODULE__, {:get_or_create, id})
+  def fetch({_,_}=id), do: GenServer.call(__MODULE__, {:fetch, id})
+  def list(), do: GenServer.call(__MODULE__, :list)
 end
 
 defmodule OAuthServer do
@@ -120,7 +148,7 @@ defmodule Twitch.IrcClient do
     oauth_token = Twitch.Auth.get()
     nickname = "whimsicallymade"
     resp = {:ok, pid} = WebSockex.start_link("ws://irc-ws.chat.twitch.tv:80", __MODULE__, %{}, opts)
-    # :ok = WebSockex.send_frame(pid, {:text, "CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands"})
+    :ok = WebSockex.send_frame(pid, {:text, "CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands"})
     :ok = WebSockex.send_frame(pid, {:text, "PASS oauth:#{oauth_token}"})
     :ok = WebSockex.send_frame(pid, {:text, "NICK #{nickname}"})
     resp
@@ -156,13 +184,13 @@ defmodule Twitch.IrcClient do
     {:reply, frame, state}
   end
 
-  defp incoming([_badges, userid, "PRIVMSG", room | words], state) do
-    incoming([userid, "PRIVMSG", room | words], state)
+  defp incoming([userid, "PRIVMSG", ("#" <> room) | words], state) do
+    incoming(["", userid, "PRIVMSG", room | words], state)
   end
-  defp incoming([userid, "PRIVMSG", room, ":!hello"], state) do
+  defp incoming([_badge, userid, "PRIVMSG", room, ":!hello"], state) do
     {"PRIVMSG #{room} :world @#{username(userid)}", state}
   end
-  defp incoming([userid, "PRIVMSG", ("#" <> room) | words], state) do
+  defp incoming([badge, userid, "PRIVMSG", ("#" <> room) | words], state) do
     txt = case words do
       [":" <> h | t] -> [h | t]
       _ -> []
@@ -173,7 +201,7 @@ defmodule Twitch.IrcClient do
 
     id
     |> IRC.RoomRegistry.get_or_create
-    |> IRC.Room.record_chat(username(userid), txt)
+    |> IRC.Room.record_chat(username(userid), txt, IRC.Badge.parse(badge))
 
     Hub.cast({:received_chat_msg, id})
     {nil, state}

@@ -2,7 +2,7 @@ defmodule IRC.Room do
   use GenServer
 
   defstruct [:id,
-             chat: CircBuf.make(1024, {"", "-"}),
+             chat: CircBuf.make(1024, {"", "-", []}),
              users: MapSet.new(),
              unread: 0,
              ]
@@ -13,7 +13,7 @@ defmodule IRC.Room do
   end
 
   @impl true
-  def handle_cast({:record_chat, user, msg}, state), do: {:noreply, record_chat(state, {user, msg})}
+  def handle_cast({:record_chat, user, msg, badges}, state), do: {:noreply, record_chat(state, {user, msg, badges})}
   def handle_cast({:add_user, user_id}, state), do: {:noreply, add_user(state, user_id)}
   def handle_cast({:remove_user, user_id}, state), do: {:noreply, remove_user(state, user_id)}
 
@@ -43,10 +43,13 @@ defmodule IRC.Room do
     {_lines, _unread} = GenServer.call(pid, {:render_and_read, size, opts})
   end
 
-  def record_chat(pid, user, msg) when is_pid(pid) do
-    GenServer.cast(pid, {:record_chat, user, msg})
+  def record_chat(pid, user, msg, badges \\ []) when is_pid(pid) do
+    GenServer.cast(pid, {:record_chat, user, msg, badges})
   end
-  def record_chat(%__MODULE__{chat: c}=room, {_, _}=msg) do
+  def record_chat(%__MODULE__{}=room, {a, b}) do
+    record_chat(room, {a, b, []})
+  end
+  def record_chat(%__MODULE__{chat: c}=room, {_, _, _}=msg) do
     %{room | chat: CircBuf.add(c, msg),
              unread: room.unread + 1}
   end
@@ -72,8 +75,10 @@ defmodule IRC.Room do
     CircBuf.take(c, count)
     |> Enum.map(fn x ->
       case x do
-        {nil, txt} -> txt
-        {user, txt} -> "#{user}: #{txt}"
+        {nil, txt}     -> txt
+        {nil, txt, _}  -> txt
+        {user, txt}    -> "#{user}: #{txt}"
+        {user, txt, _} -> "#{user}: #{txt}"
       end
     end)
   end
@@ -82,9 +87,11 @@ defmodule IRC.Room do
   def render_and_count(%__MODULE__{chat: c, unread: unread0}, {width, height}, opts) do
     skip = if Keyword.get(opts, :skip_unread, false) do unread0 else 0 end
     {lines, unread_} = CircBuf.reduce_while(c, {[], unread0 - skip}, [skip: skip],
-      fn {user, message}, {lines, unread} ->
+      fn {user, message, badges}, {lines, unread} ->
+        color = Keyword.get(badges, :color, nil)
         token = if unread > 0 do "+" else " " end
-        newlines = user <> ": " <> message
+
+        newlines = colored(user, color) <> ": " <> message
         |> String.Wrap.wrap(width - 1, opts)
         |> Enum.reverse
         |> Enum.map(& token <> &1)
@@ -99,13 +106,16 @@ defmodule IRC.Room do
     {Enum.reverse(lines), skip + max(0, unread_)}
   end
 
+  defp colored(txt, nil), do: txt
+  defp colored(txt, color), do: color <> txt <> IO.ANSI.default_color()
+
   def log_user(pid, user_id) when is_pid(pid) do
     GenServer.call(pid, {:log_user, user_id})
   end
   def log_user(%__MODULE__{}=room, user_id) do
     room.chat
     |> CircBuf.to_list()
-    |> Enum.filter(fn {u,_} -> u == user_id end)
-    |> Enum.map(fn {_,msg} -> msg end)
+    |> Enum.filter(fn {u,_,_} -> u == user_id end)
+    |> Enum.map(fn {_,msg,_} -> msg end)
   end
 end

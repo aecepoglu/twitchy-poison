@@ -15,6 +15,8 @@ defmodule Input.Socket.Message do
   defp identify(["irc", "users", ch, room]), do: {:irc, :users, ch, room}
   defp identify(["irc", "log", ch, room, user]), do: {:irc, :log, ch, room, user}
   defp identify(["key", k]), do: {:keypress, k}
+  defp identify(["option", k, v]), do: {:option, k, v}
+  defp identify(["option", k]), do: {:option, k}
   defp identify([["chores", "put"] | lines]) do
     chores = Enum.map(lines, &Chore.deserialise/1)
     {:chores, :put, chores}
@@ -112,6 +114,7 @@ defmodule Input.Socket do
   defp process(["auto-update yes"]), do: cast({:auto_update, true})
   defp process(["auto-update no"]),  do: cast({:auto_update, false})
   defp process(["restart socket"]), do: {:error, :restart_socket}
+  defp process(["mode chat"]), do: cast(:focus_chat)
   defp process(["rewind " <> n]), do: cast({:rewind, String.to_integer(n)})
   defp process([line]),      do: line  |> Message.parse |> process_parsed
   defp process([_|_]=lines), do: lines |> Message.parse |> process_parsed
@@ -120,15 +123,19 @@ defmodule Input.Socket do
   defp process_parsed({:irc, :join, "twitch", room}), do: IRC.join(:twitch, room)
   defp process_parsed({:irc, :part, "twitch", room}), do: IRC.part(:twitch, room)
   defp process_parsed({:irc, :users, "twitch", room}), do: IRC.list_users(:twitch, room)
+  defp process_parsed({:irc, :switch, ch, room}), do: cast({:focus_chat, ch, room})
   defp process_parsed({:irc, :log, "twitch", room, user}), do: IRC.log_user(:twitch, room, user)
-  defp process_parsed({:chores, :get}),         do: GenServer.call(:hub, :chores)
+  defp process_parsed({:chores, :get}),         do: call(:chores)
   defp process_parsed({:chores, :put, chores}), do: cast({:put_chores, chores})
+  defp process_parsed({:option, _k, _v}=x), do: cast(x)
+  defp process_parsed({:option, _k}=x), do: call(x)
   defp process_parsed({:keypress, k}) do
     Input.Keyboard.report(k)
     :ok
   end
 
-  defp cast(msg), do: GenServer.cast(:hub, msg)
+  defp cast(msg), do: Hub.cast(msg)
+  defp call(msg), do: Hub.call(msg)
 
   defp read_line(socket) do
     :gen_tcp.recv(socket, 0)

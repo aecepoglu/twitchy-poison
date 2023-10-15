@@ -34,6 +34,7 @@ defmodule Model do
   def ask(:task_get_cur, m), do: {:ok, m.todo |> Todo.dump_cur}
   def ask(:chores, m), do: {:ok, m.chores |> Chore.serialise}
   def ask(:everything, m), do: m
+  def ask({:option, k}, m), do: {:ok, Map.get(m.options, k, "undefined")}
 
   def update(m, :tick_minute) do
     m
@@ -181,7 +182,7 @@ defmodule Model do
     lines
     |> Enum.join("\n\r")
     |> IO.write()
-    IO.write("\n\rremainging unread: #{unread}")
+    IO.write("\n\rremainging unread: #{unread} #{Time.utc_now()}")
   end
 
   defp render_work(%Model{size: {width, height}}=m, embedded: embed?) do
@@ -204,6 +205,7 @@ defmodule Model do
       [popup | tl] -> Popup.render(popup, m.size, length(tl))
       _ -> nil
     end
+    IO.write(IO.ANSI.cursor(height, 1))
   end
 end
 

@@ -12,12 +12,12 @@ defmodule IRC do
   def join(:twitch, room), do: GenServer.cast(__MODULE__, {:join, :twitch, room})
   def part(:twitch, room), do: GenServer.cast(__MODULE__, {:part, :twitch, room})
   def list_users(:twitch, room) do
-    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {"twitch", "#"<>room}})
+    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {"twitch", room}})
     list = GenServer.call(pid, :list_users)
     {:ok, list}
   end
   def log_user(:twitch, room, user) do
-    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {"twitch", "#"<>room}})
+    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {"twitch", room}})
     msgs = GenServer.call(pid, {:log_user, user})
     {:ok, msgs}
   end

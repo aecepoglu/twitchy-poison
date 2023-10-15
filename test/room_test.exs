@@ -42,7 +42,7 @@ defmodule IRC.RoomTest do
     |> record_chat({"user", "six"})
     |> record_chat({"user", "seven eight nine"})
     |> Map.put(:unread, 0)
-    |> render_and_count({10, 5}, indent: "....")
+    |> render_and_count({10, 5}, indent: "....", color: true)
     expected = """
  user: six
  user:
