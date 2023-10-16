@@ -5,11 +5,12 @@ defmodule String.Wrap do
 
   def wrap(str, width, opts \\ []) when is_binary(str) and is_integer(width) do
     indent = Keyword.get(opts, :indent, "")
+    first_indentation = Keyword.get(opts, :first_indentation, 0)
     
     str
     |> String.split(" ")
     |> Enum.map(fn x -> {x, String.length(x)} end)
-    |> wrap(0, [], [], {width, String.length(indent)})
+    |> wrap(first_indentation, [], [], {width, String.length(indent)})
     |> Enum.map(fn x ->
         x
         |> Enum.reverse
@@ -39,25 +40,4 @@ defmodule String.Wrap do
         wrap(rmd, indentation, [], [words | lines], opts)
     end
   end
-
-  def esc_strlen(x), do: x |> String.to_charlist |> strlen(0)
-  defp strlen([                      ], a), do: a
-  #            \e  [  3|4  _  m
-  defp strlen([27, 91, 51, _, 109 | t], a), do: strlen(t, a)
-  defp strlen([27, 91, 52, _, 109 | t], a), do: strlen(t, a)
-  #            \e  [   n  m
-  defp strlen([27, 91, n, 109 | t], a) when n in 48..57, do: strlen(t, a)
-  defp strlen([_ | t                 ], a), do: strlen(t, a + 1)
-
-  def esc_split_at(str, n) do
-    {left, right} = str
-    |> String.to_charlist()
-    |> split_at(n, [])
-    {to_string(left), to_string(right)}
-  end
-  defp split_at(t,  0, acc), do: {Enum.reverse(acc), t}
-  defp split_at([], _, acc), do: split_at([], 0, acc)
-  defp split_at([27, 91, 51, fg, 109 | t], n, acc), do:
-    split_at(t, n, ([27, 91, 51, fg, 109] |> Enum.reverse) ++ acc)
-  defp split_at([h | t], n, acc), do: split_at(t, n - 1, [h | acc])
 end

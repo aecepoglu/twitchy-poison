@@ -18,8 +18,6 @@ defmodule Model do
 
   def make(create_initial_reminders: cir) do
     x = %__MODULE__{
-      hg: Backup.get(:hourglass_backup),
-      todo: Backup.get(:todo_backup),
       size: get_win_size(),
     }
     if cir do
@@ -48,11 +46,10 @@ defmodule Model do
   def update(m, {:rewind, n}), do: %{m | hg: Hourglass.rewind(m.hg, n)}
   def update(m, [:task | tl]) do
     {dp, todo_} = task_update(m.todo, tl)
-    %{m | todo: todo_ |> Backup.set(:todo_backup),
-          hg: Hourglass.progress(m.hg, dp) |> Backup.set(:hourglass_backup)
+    %{m | todo: todo_,
+          hg: Hourglass.progress(m.hg, dp)
       }
   end
-  def update(m, :task_reload), do: %{m | todo: GenServer.call(:todo_backup, :get)}
 
   def update(%Model{popups: [h | _]}=m, update), do: Popup.update(h, update, m)
 
@@ -89,7 +86,7 @@ defmodule Model do
 
   defp tick(m, :hg) do
     mode = if Todo.head_meeting?(m.todo) do :meeting else m.mode end
-    %Model{m | hg: Hourglass.tick(m.hg, mode) |> Backup.set(:hourglass_backup)}
+    %Model{m | hg: Hourglass.tick(m.hg, mode)}
   end
   defp tick(m, :upcoming), do: %Model{m | upcoming: Upcoming.tick(m.upcoming)}
 

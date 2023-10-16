@@ -1,4 +1,3 @@
-# just a generic backup thingy
 defmodule Backup do
   use Agent
 

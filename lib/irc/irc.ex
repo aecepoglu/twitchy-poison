@@ -29,8 +29,7 @@ defmodule IRC do
   end
 
   @impl true
-  def handle_info(msg, state) do
-    IO.inspect(msg)
+  def handle_info(_msg, state) do
     state
   end
 

@@ -91,8 +91,7 @@ defmodule IRC.Room do
         color = Keyword.get(badges, :color, nil)
         token = if unread > 0 do "+" else " " end
 
-        newlines = colored(user, color) <> ": " <> message
-        |> String.Wrap.wrap(width - 1, opts)
+        newlines = wrapped(color, user, message, opts, width - 1)
         |> Enum.reverse
         |> Enum.map(& token <> &1)
         if length(lines) + length(newlines) > height do
@@ -106,8 +105,24 @@ defmodule IRC.Room do
     {Enum.reverse(lines), skip + max(0, unread_)}
   end
 
+  defp wrapped(color, user, message, opts, width) do
+    opts_ = Keyword.put(opts, :first_indentation, String.length(user))
+
+    lines1 = user
+    |> String.Wrap.wrap(width, opts)
+    |> Enum.map(& colored(&1, color))
+
+    lines2 = ""  <> ": " <> message
+    |> String.Wrap.wrap(width, opts_)
+
+    zip(lines1, lines2, [])
+  end
+
   defp colored(txt, nil), do: txt
   defp colored(txt, color), do: color <> txt <> IO.ANSI.default_color()
+
+  defp zip([h1 | t1], [h2 | t2], acc), do: zip(t1, t2, [(h1 <> h2) | acc])
+  defp zip([],        t2,        acc), do: Enum.reverse(acc) ++ t2
 
   def log_user(pid, user_id) when is_pid(pid) do
     GenServer.call(pid, {:log_user, user_id})

@@ -1,8 +1,17 @@
 defmodule SocketTest do
   use ExUnit.Case
+  ExUnit.Callbacks
+
+  setup do
+    :ok = Application.stop(:twitchy_poison)
+    :ok = Application.start(:twitchy_poison)
+  end
 
   setup do
     {:ok, sock} = :gen_tcp.connect('localhost', 4444, [:binary, packet: :line, active: false])
+    on_exit(:disconnect, fn ->
+      :ok = :gen_tcp.close(sock)
+      end)
     %{socket: sock}
   end
 

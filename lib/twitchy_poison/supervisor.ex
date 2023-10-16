@@ -5,8 +5,8 @@ defmodule TwitchyPoison.Supervisor do
       Twitch.Auth,
       IRC,
       IRC.RoomRegistry,
-      {Backup, [:hourglass_backup, Progress.Hourglass.make(), name: :hourglass_backup]},
-      {Backup, [:todo_backup, Todo.empty(), name: :todo_backup]},
+      #{Backup, [:hourglass_backup, Progress.Hourglass.make(), name: :hourglass_backup]},
+      #{Backup, [:todo_backup, Todo.empty(), name: :todo_backup]},
   ]
 
   use Application

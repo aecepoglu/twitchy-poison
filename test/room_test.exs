@@ -32,7 +32,7 @@ defmodule IRC.RoomTest do
     assert unread == 0
   end
 
-  test "only render as many messages as fits in the screen" do
+  test "if all messages are old, render from latest to fill the screen" do
     {lines, _} = %IRC.Room{ id: "room 123" }
     |> record_chat({"user", "one"})
     |> record_chat({"user", "two"})
@@ -42,7 +42,7 @@ defmodule IRC.RoomTest do
     |> record_chat({"user", "six"})
     |> record_chat({"user", "seven eight nine"})
     |> Map.put(:unread, 0)
-    |> render_and_count({10, 5}, indent: "....", color: true)
+    |> render_and_count({10, 5}, indent: "....")
     expected = """
  user: six
  user:
@@ -53,15 +53,34 @@ defmodule IRC.RoomTest do
     assert lines == expected
   end
 
-  test "render only the old messages" do
+  @tag :focus
+  test "Add colour to usernames, tracking colour across multiple lines" do
+    {lines, _unread} = %IRC.Room{id: "room 123"}
+    |> record_chat({"userr12345678901234", "six four", color: "{COLOR1}"})
+    |> record_chat({"user", "six four", color: "{COLOR1}"})
+    |> record_chat({"user", "two", color: "{COLOR2}"})
+    |> Map.put(:unread, 0)
+    |> render_and_count({15, 5}, indent: "", skip_unread: false)
+    expected = """
+ : -
+ {COLOR1}userr123456789#{IO.ANSI.default_color}
+ {COLOR1}01234#{IO.ANSI.default_color}: six four
+ {COLOR1}user#{IO.ANSI.default_color}: six four
+ {COLOR2}user#{IO.ANSI.default_color}: two
+""" |> String.trim_trailing |> String.split("\n")
+    assert lines == expected
+  end
+
+  test "skip_unread ignores unread messages, rendering the last batch of read msgs" do
     {lines, unread} = %IRC.Room{id: "room 123"}
+    |> record_chat({"user", "zero"})
     |> record_chat({"user", "one"})
     |> record_chat({"user", "two"})
     |> record_chat({"user", "three"})
     |> record_chat({"user", "four"})
     |> record_chat({"user", "five"})
-    |> record_chat({"user", "six"})
-    |> record_chat({"user", "seven eight nine"})
+    |> record_chat({"user", "six"}) # new
+    |> record_chat({"user", "seven eight nine"}) # new
     |> Map.put(:unread, 2)
     |> render_and_count({15, 5}, indent: "....", skip_unread: true)
     expected = """
