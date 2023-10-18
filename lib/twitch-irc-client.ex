@@ -144,14 +144,17 @@ defmodule Twitch.IrcClient do
 
   @bots MapSet.new([":commanderroot", "smallstreamersdiscord_"])
 
-  def start_link(opts) do
+  def start_link(_name, opts) do
     oauth_token = Twitch.Auth.get()
     nickname = "whimsicallymade"
-    resp = {:ok, pid} = WebSockex.start_link("ws://irc-ws.chat.twitch.tv:80", __MODULE__, %{}, opts)
-    :ok = WebSockex.send_frame(pid, {:text, "CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands"})
-    :ok = WebSockex.send_frame(pid, {:text, "PASS oauth:#{oauth_token}"})
-    :ok = WebSockex.send_frame(pid, {:text, "NICK #{nickname}"})
-    resp
+    {:ok, pid} = WebSockex.start_link("ws://irc-ws.chat.twitch.tv:80", __MODULE__, %{}, opts)
+    [ "CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands",
+      "PASS oauth:#{oauth_token}",
+      "NICK #{nickname}",
+    ]
+    |> Enum.each(fn x -> :ok = WebSockex.send_frame(pid, {:text, x}) end)
+
+    {:ok, pid}
   end
 
   @impl true
@@ -188,7 +191,7 @@ defmodule Twitch.IrcClient do
     incoming(["", userid, "PRIVMSG", room | words], state)
   end
   defp incoming([_badge, userid, "PRIVMSG", room, ":!hello"], state) do
-    {"PRIVMSG #{room} :world @#{username(userid)}", state}
+    {"PRIVMSG #{room + 4} :world @#{username(userid)}", state}
   end
   defp incoming([badge, userid, "PRIVMSG", ("#" <> room) | words], state) do
     txt = case words do

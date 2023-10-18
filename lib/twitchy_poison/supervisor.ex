@@ -3,7 +3,7 @@ defmodule TwitchyPoison.Supervisor do
   @common [
       {DynamicSupervisor, name: IRC.Supervisor, strategy: :one_for_one},
       Twitch.Auth,
-      IRC,
+      {Registry, keys: :unique, name: Registry.IRC},
       IRC.RoomRegistry,
       #{Backup, [:hourglass_backup, Progress.Hourglass.make(), name: :hourglass_backup]},
       #{Backup, [:todo_backup, Todo.empty(), name: :todo_backup]},

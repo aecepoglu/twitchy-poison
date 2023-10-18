@@ -26,7 +26,7 @@ end
 defmodule Todo do
   defstruct [
     :label,
-    done?: false,
+    done: false,
     hook: []
   ]
 
@@ -50,11 +50,12 @@ defmodule Todo do
   def join_eager([h1, h2 | t]) when is_list(h1), do: join_eager([(h1 ++ [h2]) | t])
   def join_eager([h1, h2 | t])                 , do: join_eager([[h1, h2] | t])
 
-  def add([h | t]                    , x, :push) when is_list(h), do: [add(h, x, :push) | t]
-  def add([h | t]                    , x, :last) when is_list(h), do: [add(h, x, :last) | t]
-  def add([%Todo{done?: false}=h|t]  , x, :next),                 do: [h | add(t, x, :next)]
-  def add([%Todo{done?: false}=h|t]  , x, :last),                 do: [h | add(t, x, :last)]
-  def add(list                       , x, _),                     do: [x | list]
+  def add( [],      x, _    ), do: [x]
+  def add( [h | t], x, :next), do: [h, x | t]
+  def add( [h | t], x, :push), do: [x, h | t]
+  def add( [%Todo{done: true}|_]=t, x, :last), do: [x | t]
+  def add([[%Todo{done: true}|_] | _]=t, x, :last), do: [x | t]
+  def add( [h | t], x, :last), do: [h | add(t, x, :last)]
 
   def pop([[h1, h2] | t]), do: [h1, h2 | t]
   def pop([[hh | ht] | t]), do: [hh | [ht | t]]
@@ -65,14 +66,14 @@ defmodule Todo do
   def del([_ | t]), do: t
   def del([]), do: []
 
-  def mark_done!([%Todo{done?: false}=h | t]) do
+  def mark_done!([%Todo{done: false}=h | t]) do
     # FIXME Todo.Hook.run!(h.hook)
-    t ++ [%{h | done?: true}]
+    t ++ [%{h | done: true}]
   end
   def mark_done!([h | t]) when is_list(h) , do: [mark_done!(h) | t]
   def mark_done!([]), do: []
 
-  def head_meeting?([%Todo{done?: false, label: "@meeting" <> _} | _]), do: true
+  def head_meeting?([%Todo{done: false, label: "@meeting" <> _} | _]), do: true
   def head_meeting?(_), do: false
 
   defp join_(a, b), do: enlist(a) ++ enlist(b)
@@ -111,8 +112,9 @@ defmodule Todo do
     |> Enum.map(&"  " <> &1)
   end
 
-  defp str(%Todo{done?: d, label: l}=t, width, color: has_colors?) do
-    [hd | tl] = fold(l, width - 4, []) # 2 (decor) + 2 (bullet) = 4
+  defp str(%Todo{done: d, label: l}=t, width, color: has_colors?) do
+    # [hd | tl] = fold(l, width - 4, []) # 2 (decor) + 2 (bullet) = 4
+    [hd | tl] = String.Wrap.wrap(l, width - 4)
     hd_ = bullet_to_str(t) <> " " <> hd
     tl_ = tl |> Enum.map(& "  " <> &1)
     lines = [hd_ | tl_]
@@ -126,18 +128,10 @@ defmodule Todo do
   defp color(x, false), do: x
   defp color(lines, true), do: Enum.map(lines, fn x -> IO.ANSI.faint <> x <> IO.ANSI.normal end)
 
-  defp fold(txt, width, acc) do
-    if String.length(txt) > width do
-      {left, right} = String.split_at(txt, width)
-      fold(right, width, [left | acc])
-    else
-      [txt | acc] |> Enum.reverse
-    end
-  end
-
-  def render(todos, {width, _height}) do
+  def render(todos, {width, height}) do
     todos
     |> strings(width, color: true)
+    |> Enum.take(height) # TODO fix
     |> Enum.map(fn x -> IO.ANSI.clear_line <> x end)
     |> Enum.join("\n\r")
   end
@@ -150,16 +144,16 @@ defmodule Todo do
   def dump_cur([]), do: []
 
   defp serialise([h | t]) do
-    bullet = if h.done? do "x" else " " end
+    bullet = if h.done do "x" else " " end
     h_ = "#{bullet} #{h.label}"
     t_ = serialise(t)
     [h_ | t_]
   end
   defp serialise([]), do: []
 
-  defp bullet_to_str(%Todo{done?: true}), do: "●"
-  defp bullet_to_str(%Todo{done?: false, hook: []}), do: "○"
-  defp bullet_to_str(%Todo{done?: false, hook: _}), do: "◬"
+  defp bullet_to_str(%Todo{done: true}), do: "●"
+  defp bullet_to_str(%Todo{done: false, hook: []}), do: "○"
+  defp bullet_to_str(%Todo{done: false, hook: _}), do: "◬"
 
   def deserialise(lines) when is_list(lines), do: Enum.map(lines, &deserialise/1)
   def deserialise(txt) do

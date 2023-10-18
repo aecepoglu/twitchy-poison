@@ -47,7 +47,12 @@ defmodule Model do
   def update(m, [:task | tl]) do
     {dp, todo_} = task_update(m.todo, tl)
     %{m | todo: todo_,
-          hg: Hourglass.progress(m.hg, dp)
+          hg: Hourglass.progress(m.hg, dp),
+          popups: if todo_ > 0 do
+                    Popup.List.delete(m.popups, :idle)
+                  else
+                    m.popups
+                  end,
       }
   end
 
@@ -194,6 +199,7 @@ defmodule Model do
 
     notification = if m.notification && not(embed?) do
       IO.ANSI.clear_line() <> "New chat notifications"
+      "new chat notifications"
     else
       ""
     end
@@ -210,12 +216,12 @@ defmodule FlowState do
   @factor 3
 
   def alarms(%Model{}=m) do
-    %{break: _b, idle: i, work: w} = Progress.Trend.recent_stats(m.hg |> elem(0))
-    ids = MapSet.union(Popup.ids(m.popups), Upcoming.ids(m.upcoming))
-    new? = &Popup.new_id?(ids, &1)
-    []
-    ++ (if new?.(:idle) && i >= 2  do           [Popup.make(:idle, "split your task", snooze: 5)] else [] end)
-    ++ (if new?.(:rest) && i > 1 && w >= 10 do [Popup.make(:rest, "take a break", snooze: 15)] else [] end)
+    stats = %{break: _, idle: _, work: _} = Progress.Trend.recent_stats(m.hg |> elem(0))
+    ids = MapSet.union(Popup.List.ids(m.popups), Upcoming.ids(m.upcoming))
+
+    list_alarms()
+    |> Enum.filter(fn {id, pred, _} -> Popup.List.new_id?(ids, id) && pred.(m, stats) end)
+    |> Enum.map(fn    {_,  _,    x} -> x end)
   end
 
   def suggest(%Model{}=m) do
@@ -237,5 +243,18 @@ defmodule FlowState do
       |> then(& &1 * 4 * 60) # TODO hardcoded
       |> max(0)
     end
+  end
+
+  defp list_alarms() do
+    [
+      { :idle,
+        fn %Model{hg: hg}, _ -> Progress.Hourglass.idle?(hg) end,
+        Popup.make(:idle, "split your task", snooze: 5)
+        },
+      { :rest,
+        fn _, s -> s.work >= 10 && s.idle > 1 end,
+        Popup.make(:rest, "take a break", snooze: 15)
+        },
+    ]
   end
 end

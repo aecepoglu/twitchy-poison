@@ -88,11 +88,14 @@ void start_kbd_listener() {
 
 		for (char key; sd > 0;) {
 			read(1, &key, 1);
-			if ((key >= 'a' && key <= 'z') || (key >= '0' && key <= '9') || key == 27) {
+			// printf("key: %d\n", key);
+			if ((key >= 'a' && key <= 'z')
+			    || (key >= '0' && key <= '9')
+			    || key == 32 || key == 27 || key == 10
+			) {
 				switch (key) {
+					case 10: sprintf(msgbuf, "key %s\r\n", "return"); break;
 					case 27: sprintf(msgbuf, "key %s\r\n", "escape"); break;
-					case 't':  sprintf(msgbuf, "key %s\r\n", "down"); break;
-					case 'n':  sprintf(msgbuf, "key %s\r\n", "up"); break;
 					default:   sprintf(msgbuf, "key %c\r\n", key); break;
 				}
 				rc = send_msg(sd, msgbuf, buffer);

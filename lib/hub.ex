@@ -1,7 +1,7 @@
 defmodule Hub do
   use GenServer
 
-  @ignore_ticks false
+  @ignore_ticks true
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, nil, name: :hub)

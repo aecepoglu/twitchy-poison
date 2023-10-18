@@ -44,4 +44,8 @@ defmodule Progress.Hourglass do
     import IO.ANSI
     cursor(1, 1) <> clear_line() <> string(x, {width - 2, height})
   end
+
+  def idle?({past, now}) do
+    now.done == 0 && Trend.idle?(past)
+  end
 end

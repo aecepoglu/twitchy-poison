@@ -1,6 +1,7 @@
 defmodule TodoTest do
   use ExUnit.Case
   import Todo
+
   test "string" do
     lines = empty()
     |> add(%Todo{label: "1"}, :push)
@@ -17,7 +18,7 @@ defmodule TodoTest do
 
   test "rot" do
     lines = empty()
-    |> add(%Todo{label: "1", done?: true}, :push)
+    |> add(%Todo{label: "1", done: true}, :push)
     |> add(%Todo{label: "2"}, :push)
     |> add(%Todo{label: "3"}, :push)
     |> rot(:outside)
@@ -27,6 +28,27 @@ defmodule TodoTest do
       "  ○ 2",
       "  ○ 3",
       "  ● 1",
+    ]
+  end
+
+  test "rot outside over a group" do
+    todos = [
+      %Todo{label: "1"},
+      [ %Todo{label: "2"},
+        %Todo{label: "3"},
+        %Todo{label: "4"},
+      ],
+      %Todo{label: "5"},
+    ]
+    |> rot(:outside)
+
+    assert todos == [
+      [ %Todo{label: "2"},
+        %Todo{label: "3"},
+        %Todo{label: "4"},
+      ],
+      %Todo{label: "5"},
+      %Todo{label: "1"},
     ]
   end
 
@@ -131,9 +153,10 @@ defmodule TodoTest do
     assert lines == [
       "  ○ ungrouped",
       "╭ ○ bye",
-      "│ ○ one two three four five six seven ei",
-      "│   ght nine ten eleven twelve thirteen ",
-      "╰   fourteen fifteen sixteen seventeen",
+      "│ ○ one two three four five six seven",
+      "│   eight nine ten eleven twelve",
+      "│   thirteen fourteen fifteen sixteen",
+      "╰   seventeen",
       "  ○ hii",
     ]
   end
@@ -148,7 +171,7 @@ defmodule TodoTest do
 
     assert lines == [
       [ %Todo{             label: "two"},
-        %Todo{done?: true, label: "three"},
+        %Todo{done: true, label: "three"},
       ],
       %Todo{             label: "one"},
     ]
@@ -189,9 +212,31 @@ defmodule TodoTest do
   test "mark_done rotates tasks" do
     t1 = %Todo{label: "one"}
     t2 = %Todo{label: "two"}
-    t3 = %Todo{label: "three", done?: true}
+    t3 = %Todo{label: "three", done: true}
 
-    assert mark_done!([t1, t2, t3]) == [t2, t3, %{t1 | done?: true}]
+    assert mark_done!([t1, t2, t3]) == [t2, t3, %{t1 | done: true}]
+  end
+
+  test "renders only as many lines as fits on screen" do
+    lines = [
+      %Todo{label: "1"},
+      %Todo{label: "2"},
+      %Todo{label: "3"},
+      %Todo{label: "4000 4111 4222"},
+      %Todo{label: "5"},
+      %Todo{label: "6"},
+    ]
+    |> render({9, 5})
+    |> String.split("\n\r")
+
+    assert lines == [
+      "  ○ 1",
+      "  ○ 2",
+      "  ○ 3",
+      "  ○ 4000",
+      "    4111",
+    ]
+    |> Enum.map(& "\e[2K" <> &1)
   end
 end
 
@@ -205,12 +250,14 @@ defmodule TodoParserTest do
       hook: nil,
     }
   end
+
   test "empty string" do
     assert parse("") == %{
       label: "",
       hook: nil,
     }
   end
+
   test "todobqn hook" do
     assert parse("who what when todobqn:something here") == %{
       label: "who what when here",

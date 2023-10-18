@@ -26,16 +26,8 @@ defmodule Progress.Trend do
 
   def rewind(trend, k), do: Enum.drop(trend, k)
 
-  def idle_too_long?(trend) do
-    length(trend) >= 4 && trend
-    |> Enum.take(4)
-    |> Enum.all?(& &1 == :idle)
-  end
-
-  def worked_too_long?(trend) do
-    length(trend) >= 10 && trend
-    |> Enum.take(10)
-    |> Enum.all?(& &1 != :idle && &1 != :break)
+  def idle?(trend) do
+    Enum.take(trend, 3) == [:idle, :idle, :idle]
   end
 
   def to_list(x), do: x

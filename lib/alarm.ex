@@ -22,7 +22,7 @@ defmodule Upcoming do
   def has?(alarms, id) do
     alarms
     |> Enum.map(&elem(&1, 1))
-    |> Popup.has_id?(id)
+    |> Popup.List.has_id?(id)
   end
 
   def render([{_, alarm} | _], {width, _}) do

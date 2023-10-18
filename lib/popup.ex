@@ -96,10 +96,19 @@ defmodule Popup do
     end
   end
 
+end
+
+defmodule Popup.List do
   def new_id?(_, nil), do: true
+  def new_id?([], _), do: true
   def new_id?(ids, id), do: !MapSet.member?(ids, id)
 
   def has_id?(list, id), do: Enum.any?(list, & &1.id == id)
 
   def ids(list), do: list |> Enum.map(& &1.id) |> MapSet.new()
+
+  def delete(list, nil), do: list
+  def delete(list, id) when is_atom(id) do
+    Enum.filter(list, fn %Popup{id: x} -> id == x end)
+  end
 end

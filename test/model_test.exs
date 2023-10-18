@@ -89,12 +89,31 @@ defmodule FlowStateTest do
     end)
   end
 
+  @idle_activity [:idle, :idle, :idle]
+
   test "suggest splitting a task if I'm stuck", %{model: m} do
     _popups = m
-    |> log_activity([:idle, :idle, :idle])
+    |> log_activity(@idle_activity)
     |> FlowState.alarms
 
     assert match?(_popups, [%Popup{label: "split your task"}])
+  end
+
+  test "I'm not stuck if I've pushed in some work", %{model: m} do
+    popups = m
+    |> log_activity(@idle_activity ++ [:work])
+    |> FlowState.alarms
+
+    assert popups == []
+  end
+
+  test "I'm not stuck if I've attempted some work", %{model: m} do
+    popups = m
+    |> log_activity(@idle_activity)
+    |> Map.update!(:hg, &Progress.Hourglass.progress(&1, 1))
+    |> FlowState.alarms
+
+    assert popups == []
   end
 
   test "delay suggesting breaks if I'm very well focused", %{model: m} do
@@ -105,11 +124,10 @@ defmodule FlowStateTest do
     assert popups == []
   end
 
-  @tag :wip
   test "don't suggest a break if I've already declined the offer", %{model: m} do
     upcoming = Upcoming.empty() |> Upcoming.add(Popup.make(:idle, "...", snooze: 15))
     popups = %{m | upcoming: upcoming}
-    |> log_activity([:idle, :idle, :idle])
+    |> log_activity(@idle_activity)
     |> FlowState.alarms
 
     assert popups == []
