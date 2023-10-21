@@ -173,7 +173,8 @@ defmodule Twitch.IrcClient do
       {[], s} -> {:ok, s}
       {r,  s} -> r_ = r |> Enum.map(& &1 <> "\r\n")
                         |> Enum.join()
-                 {:reply, r_, s}
+                 IO.inspect({"reply", r_})
+                 {:reply, {:text, r_}, s}
     end
   end
   def handle_frame({type, msg}, state) do
@@ -190,8 +191,8 @@ defmodule Twitch.IrcClient do
   defp incoming([userid, "PRIVMSG", ("#" <> room) | words], state) do
     incoming(["", userid, "PRIVMSG", room | words], state)
   end
-  defp incoming([_badge, userid, "PRIVMSG", room, ":!hello"], state) do
-    {"PRIVMSG #{room + 4} :world @#{username(userid)}", state}
+  defp incoming([_badge, _userid, "PRIVMSG", room, ":!hello"], state) do
+    {"PRIVMSG #{room} :world", state}
   end
   defp incoming([badge, userid, "PRIVMSG", ("#" <> room) | words], state) do
     txt = case words do

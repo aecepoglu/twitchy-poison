@@ -10,10 +10,13 @@ if test (count $argv) -lt 1
 	exit 1
 end
 
-if test $argv[1] = multi
-	multiline $argv[2..] \
-	| sed -e '$ ! s/^/... /'
-else
-	echo $argv
-end | socat /tmp/goldfish.sock -
-
+switch $argv[1]
+	case multi
+		multiline $argv[2..] | sed -e '$ ! s/^/... /' | socat /tmp/goldfish.sock -
+	case chat
+		while read -P "say >" r
+			echo "irc chat twitch whimsicallymade" $r | socat /tmp/goldfish.sock -
+		end
+	case '*'
+		echo $argv | socat /tmp/goldfish.sock -
+end

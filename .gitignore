@@ -24,3 +24,4 @@ twitchy_poison-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+foreign/wrapper.exe

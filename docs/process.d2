@@ -1,11 +1,14 @@
 direction: right
+wrapper.stdin.shape: text
 
-Processes {
+wrapper.stdin -> goldfish.unix socket
+
+goldfish {
 	irc connection.style.multiple: true
+	irc room.style.multiple: true
 
-	keyboard -> controller
-	irc connection -> controller
-	websocket connection -> controller
-	named pipe -> controller
-	controller -> view
+   unix socket -- hub
+	irc connection -- hub
+   irc connection -- irc room
+	hub -- irc room
 }

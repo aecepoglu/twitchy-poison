@@ -42,15 +42,21 @@ defmodule IRC do
   end
 
   def join(ch, room) do
-    ch
-    |> via
-    |> WebSockex.send_frame({:text, "JOIN #" <> room})
+    send_frame(ch, "JOIN #" <> room)
   end
 
   def part(ch, room) do
+    send_frame(ch, "PART #" <> room)
+  end
+
+  def text(ch, room, msg) do
+    send_frame(ch, "PRIVMSG ##{room} :#{msg}\r\n")
+  end
+
+  def send_frame(ch, msg) do
     ch
     |> via
-    |> WebSockex.send_frame({:text, "PART #" <> room})
+    |> WebSockex.send_frame({:text, msg})
   end
 
   defp via(name) do

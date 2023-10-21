@@ -16,6 +16,6 @@ WebsocketConnection -> Hub.inbox
 Hub.inbox -> Hub.update
 Hub.Model -> Hub.update -> Hub.Model
 Hub.update -> Hub.View
-Keyboard -> Hub.inbox
+stdin -> "wrapper.exe" -> Socket
 
 Kakoune <> GoldfishCLI <> Socket

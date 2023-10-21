@@ -151,8 +151,8 @@ defmodule Todo do
   end
   defp serialise([]), do: []
 
-  defp bullet_to_str(%Todo{done: true}), do: "●"
-  defp bullet_to_str(%Todo{done: false, hook: []}), do: "○"
+  defp bullet_to_str(%Todo{done: true}), do: "☒"
+  defp bullet_to_str(%Todo{done: false, hook: []}), do: "☐"
   defp bullet_to_str(%Todo{done: false, hook: _}), do: "◬"
 
   def deserialise(lines) when is_list(lines), do: Enum.map(lines, &deserialise/1)

@@ -171,7 +171,7 @@ defmodule Model do
       h_half = floor(height / 2)
       render_work(%Model{m | size: {width, h_half}}, embedded: true)
       IO.write(Geometry.hor_line(width, '═') <> "\n\r")
-      h_half + 1
+      h_half
     else
       height
     end

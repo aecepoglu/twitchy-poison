@@ -14,6 +14,7 @@ defmodule Input.Socket.Message do
   defp identify(["irc", "switch", ch, room]), do: {:irc, :switch, ch, room}
   defp identify(["irc", "users", ch, room]), do: {:irc, :users, ch, room}
   defp identify(["irc", "log", ch, room, user]), do: {:irc, :log, ch, room, user}
+  defp identify(["irc", "chat", ch, room | words]), do: {:irc, :chat, ch, room, Enum.join(words, " ")}
   defp identify(["key", k]), do: {:keypress, k}
   defp identify(["option", k, v]), do: {:option, k, v}
   defp identify(["option", k]), do: {:option, k}
@@ -118,13 +119,14 @@ defmodule Input.Socket do
   defp process(["rewind " <> n]), do: cast({:rewind, String.to_integer(n)})
   defp process([line]),      do: line  |> Message.parse |> process_parsed
   defp process([_|_]=lines), do: lines |> Message.parse |> process_parsed
-  defp process_parsed({:irc, :connect, "twitch"}), do: IRC.connect("twitch")
-  defp process_parsed({:irc, :disconnect, "twitch"}), do: IRC.disconnect("twitch")
-  defp process_parsed({:irc, :join, "twitch", room}), do: IRC.join("twitch", room)
-  defp process_parsed({:irc, :part, "twitch", room}), do: IRC.part("twitch", room)
-  defp process_parsed({:irc, :users, "twitch", room}), do: IRC.list_users("twitch", room)
+  defp process_parsed({:irc, :connect, ch}), do: IRC.connect(ch)
+  defp process_parsed({:irc, :disconnect, ch}), do: IRC.disconnect(ch)
+  defp process_parsed({:irc, :join, ch, room}), do: IRC.join(ch, room)
+  defp process_parsed({:irc, :part, ch, room}), do: IRC.part(ch, room)
+  defp process_parsed({:irc, :users, ch, room}), do: IRC.list_users(ch, room)
   defp process_parsed({:irc, :switch, ch, room}), do: cast({:focus_chat, ch, room})
-  defp process_parsed({:irc, :log, "twitch", room, user}), do: IRC.log_user("twitch", room, user)
+  defp process_parsed({:irc, :log, ch, room, user}), do: IRC.log_user(ch, room, user)
+  defp process_parsed({:irc, :chat, ch, room, msg}), do: IRC.text(ch, room, msg)
   defp process_parsed({:chores, :get}),         do: call(:chores)
   defp process_parsed({:chores, :put, chores}), do: cast({:put_chores, chores})
   defp process_parsed({:option, _k, _v}=x), do: cast(x)
