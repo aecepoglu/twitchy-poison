@@ -3,26 +3,6 @@ defmodule Todo.Hook do
   def run!([{:todobqn, _key} | _]), do: nil
 end
 
-defmodule Todo.Parser do
-  def parse(txt) do
-    found = String.split(txt)
-    |> Enum.map(&categorise/1)
-    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
-
-    label = Map.get(found, :label, []) |> Enum.join(" ")
-    defaults = %{
-      label: "",
-      hook: nil,
-    }
-
-    defaults
-    |> Map.merge(found)
-    |> Map.merge(%{label: label})
-  end
-  defp categorise("todobqn:" <> key), do: {:hook, {:todobqn, key}}
-  defp categorise(x), do: {:label, x}
-end
-
 defmodule Todo do
   defstruct [
     :label,
@@ -44,11 +24,10 @@ defmodule Todo do
   def join([h1, h2 | t]), do: [join_(h1, h2) | t]
   def join(x), do: x
 
-  def join_eager([]), do: []
-  def join_eager([h]), do: [h]
-  def join_eager([h1, h2 | t]) when is_list(h2), do: [h1, h2 | t]
-  def join_eager([h1, h2 | t]) when is_list(h1), do: join_eager([(h1 ++ [h2]) | t])
-  def join_eager([h1, h2 | t])                 , do: join_eager([[h1, h2] | t])
+  def join_eager(list) do
+    {left, right} = Enum.split_while(list, & not(is_list(&1)))
+    [left | right]
+  end
 
   def add( [],      x, _    ), do: [x]
   def add( [h | t], x, :next), do: [h, x | t]
@@ -157,11 +136,7 @@ defmodule Todo do
 
   def deserialise(lines) when is_list(lines), do: Enum.map(lines, &deserialise/1)
   def deserialise(txt) do
-    {done, rest} =  case txt do
-      "x " <> k -> {true, k}
-      "  " <> k -> {false, k}
-    end
-    %{struct!(Todo, Todo.Parser.parse(rest)) | done?: done}
+    Todo.Parser.parse(txt)
   end
 
   def persist!([%Todo{}=h | t]) do

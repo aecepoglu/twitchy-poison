@@ -245,23 +245,25 @@ defmodule TodoParserTest do
   import Todo.Parser, only: [parse: 1]
 
   test "strings go as is" do
-    assert parse("what is this?") == %{
+    assert parse("x what is this?") == %Todo{
       label: "what is this?",
-      hook: nil,
+      hook: [],
+      done: true,
     }
   end
 
   test "empty string" do
-    assert parse("") == %{
+    assert parse("  ") == %Todo{
       label: "",
-      hook: nil,
+      hook: [],
     }
   end
 
   test "todobqn hook" do
-    assert parse("who what when todobqn:something here") == %{
+    assert parse("x who what when todobqn:something here") == %Todo{
       label: "who what when here",
       hook: [todobqn: "something"],
+      done: true,
     }
   end
 end
