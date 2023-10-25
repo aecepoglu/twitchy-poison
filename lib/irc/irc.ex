@@ -30,6 +30,7 @@ defmodule IRC do
       start: {Twitch.IrcClient, :start_link, [ch, [name: via(ch)]]},
     }
     {:ok, pid} = DynamicSupervisor.start_child(IRC.Supervisor, child_spec)
+    Hub.monitor_please(pid)
     :ok = Enum.each(@twitch_default_rooms, fn room ->
         WebSockex.send_frame(pid, {:text, "JOIN #" <> room})
       end)

@@ -11,6 +11,7 @@ defmodule Model do
              tmp: nil,
              notification: nil,
              chatroom: nil,
+             logs: [],
              options: %{follow_chat_live?: true,
                         split_v?: true,
                         },
@@ -27,6 +28,10 @@ defmodule Model do
     else
       x
     end
+  end
+
+  def log(msg, m) do
+    %{m | logs: [msg | m.logs]}
   end
 
   def ask(:task_get_cur, m), do: {:ok, m.todo |> Todo.dump_cur}

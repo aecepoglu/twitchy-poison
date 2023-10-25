@@ -15,6 +15,10 @@ defmodule Hub do
   end
 
   @impl true
+  def handle_cast({:monitor_please, pid}, state) do
+    Process.monitor(pid)
+    {:noreply, state}
+  end
   def handle_cast(event, state) when event in [:tick_minute, :tick_second] and @ignore_ticks do
     Model.update(state, event)
     |> noreply
@@ -35,6 +39,9 @@ defmodule Hub do
   def handle_info(:tick_minute, state), do: handle_cast(:tick_minute, state)
   def handle_info(:tick_second, state) when state.mode == :break, do: handle_cast(:tick_second, state)
   def handle_info(:tick_second, state), do: {:noreply, state}
+  def handle_info(msg, state) do
+    {:noreply, Model.log(msg, state)}
+  end
 
   def tick(), do: GenServer.cast(:hub, :tick_minute)
   def task_disband(), do: GenServer.cast(:hub, :task_disband)
@@ -46,6 +53,8 @@ defmodule Hub do
   def escape(), do: GenServer.cast(:hub, :escape)
   def cast(msg), do: GenServer.cast(:hub, msg)
   def call(msg), do: GenServer.call(:hub, msg)
+
+  def monitor_please(pid), do: GenServer.cast(:hub, {:monitor_please, pid})
 
   defp noreply(x), do: {:noreply, x}
 end
