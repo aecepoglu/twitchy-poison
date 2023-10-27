@@ -53,6 +53,7 @@ defmodule Hub do
   def escape(), do: GenServer.cast(:hub, :escape)
   def cast(msg), do: GenServer.cast(:hub, msg)
   def call(msg), do: GenServer.call(:hub, msg)
+  def log(msg), do: GenServer.cast(:hub, {:log, msg})
 
   def monitor_please(pid), do: GenServer.cast(:hub, {:monitor_please, pid})
 

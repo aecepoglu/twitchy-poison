@@ -46,6 +46,7 @@ defmodule Model do
     |> popup_from_time_stuff()
     |> popup_from_upcoming()
   end
+  def update(m, {:log, msg}), do: log(msg, m)
   def update(m, :tick_second) when m.mode == :break, do: %{m | tmp: Break.tick(m.tmp)}
   def update(m, {:received_chat_msg, from}), do: %{m | notification: from}
   def update(m, {:rewind, n}), do: %{m | hg: Hourglass.rewind(m.hg, n)}

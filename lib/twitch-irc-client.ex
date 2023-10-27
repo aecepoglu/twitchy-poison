@@ -18,6 +18,7 @@ defmodule IRC.Badge do
   defp str_to_bool("0"), do: false
   defp str_to_bool("1"), do: true
 
+  defp color_hex_to_decimal(""), do: IO.ANSI.default_color()
   defp color_hex_to_decimal("#" <> str) do
     String.graphemes(str)
     |> Enum.map(&@hex[&1])
@@ -203,6 +204,8 @@ defmodule Twitch.IrcClient do
 
     id = {"twitch", room}
 
+    Hub.log(%{badge: badge, userid: userid, room: room, txt: txt})
+
     id
     |> IRC.RoomRegistry.get_or_create
     |> IRC.Room.record_chat(username(userid), txt, IRC.Badge.parse(badge))
@@ -239,6 +242,7 @@ defmodule Twitch.IrcClient do
     |> IRC.Room.record_chat("-", txt)
     {nil, state}
   end
+
   defp username(str) do
     case String.split(str, "!") do
       [(":" <> h)| _] -> h
