@@ -11,8 +11,8 @@ defmodule TodoTest do
     |> strings(40, color: false)
 
     assert lines == [
-      "  ☐ 3",
-      "  ☐ 1"
+      "  ⋅ 3",
+      "  ⋅ 1"
     ]
   end
 
@@ -25,9 +25,9 @@ defmodule TodoTest do
     |> strings(40, color: false)
 
     assert lines == [
-      "  ☐ 2",
-      "  ☐ 3",
-      "  ☒ 1",
+      "  ⋅ 2",
+      "  ⋅ 3",
+      "  ✔ 1",
     ]
   end
 
@@ -62,9 +62,9 @@ defmodule TodoTest do
     |> strings(40, color: false)
 
     assert lines == [
-      "  ☐ 3",
-      "╭ ☐ 2",
-      "╰ ☐ 1",
+      "  ⋅ 3",
+      "╭ ⋅ 2",
+      "╰ ⋅ 1",
     ]
   end
 
@@ -77,8 +77,8 @@ defmodule TodoTest do
     |> strings(40, color: false)
 
     assert lines == [
-      "  ☐ 2",
-      "  ☐ 1",
+      "  ⋅ 2",
+      "  ⋅ 1",
     ]
   end
 
@@ -91,8 +91,8 @@ defmodule TodoTest do
     |> strings(40, color: false)
 
     assert lines == [
-      "  ☐ 2",
-      "  ☐ 1",
+      "  ⋅ 2",
+      "  ⋅ 1",
     ]
   end
 
@@ -106,8 +106,8 @@ defmodule TodoTest do
     |> strings(40, color: false)
 
     assert lines == [
-      "╭ ☐ 2",
-      "╰ ☐ 1",
+      "╭ ⋅ 2",
+      "╰ ⋅ 1",
     ]
   end
 
@@ -123,9 +123,9 @@ defmodule TodoTest do
     |> strings(40, color: false)
 
     assert lines == [
-      "  ☐ 3",
-      "╭ ☐ 2",
-      "╰ ☐ 1",
+      "  ⋅ 3",
+      "╭ ⋅ 2",
+      "╰ ⋅ 1",
     ]
   end
 
@@ -136,7 +136,7 @@ defmodule TodoTest do
     |> strings(40, color: false)
 
     assert lines == [
-      "< ☐ 1"
+      "< ⋅ 1"
     ]
   end
 
@@ -151,13 +151,13 @@ defmodule TodoTest do
     |> strings(40, color: false)
 
     assert lines == [
-      "  ☐ ungrouped",
-      "╭ ☐ bye",
-      "│ ☐ one two three four five six seven",
+      "  ⋅ ungrouped",
+      "╭ ⋅ bye",
+      "│ ⋅ one two three four five six seven",
       "│   eight nine ten eleven twelve",
       "│   thirteen fourteen fifteen sixteen",
       "╰   seventeen",
-      "  ☐ hii",
+      "  ⋅ hii",
     ]
   end
 
@@ -197,15 +197,15 @@ defmodule TodoTest do
     |> strings(40)
 
     assert lines == [
-      "╭ ☐ nine",
-      "│ ☐ eight",
-      "╰ ☐ seven",
-      "╭ ☐ six",
-      "│ ☐ five",
-      "╰ ☐ four",
-      "╭ ☐ three",
-      "│ ☐ two",
-      "╰ ☐ one",
+      "╭ ⋅ nine",
+      "│ ⋅ eight",
+      "╰ ⋅ seven",
+      "╭ ⋅ six",
+      "│ ⋅ five",
+      "╰ ⋅ four",
+      "╭ ⋅ three",
+      "│ ⋅ two",
+      "╰ ⋅ one",
     ]
   end
 
@@ -230,10 +230,10 @@ defmodule TodoTest do
     |> String.split("\n\r")
 
     assert lines == [
-      "  ☐ 1",
-      "  ☐ 2",
-      "  ☐ 3",
-      "  ☐ 4000",
+      "  ⋅ 1",
+      "  ⋅ 2",
+      "  ⋅ 3",
+      "  ⋅ 4000",
       "    4111",
     ]
     |> Enum.map(& "\e[2K" <> &1)

@@ -25,8 +25,15 @@ defmodule Hub do
   end
   def handle_cast(event, state) do
     Model.update(state, event)
-    |> tap(&Model.render/1)
+    |> effective_render
     |> noreply
+  end
+
+  defp effective_render(%Model{}=model) do
+    case Model.render(model) do
+      %Model{}=m -> m
+      _          -> model
+    end
   end
 
   @impl true
@@ -48,12 +55,9 @@ defmodule Hub do
   def get_cur_task(), do: GenServer.call(:hub, :task_get_cur)
   def refresh(), do: GenServer.cast(:hub, :refresh)
   def mode(val), do: GenServer.cast(:hub, {:mode, val})
-  def start_break(), do: GenServer.cast(:hub, :start_break)
-  def dir_move(dir), do: GenServer.cast(:hub, {:dir, dir})
-  def escape(), do: GenServer.cast(:hub, :escape)
+  def log(msg), do: GenServer.cast(:hub, {:log, msg})
   def cast(msg), do: GenServer.cast(:hub, msg)
   def call(msg), do: GenServer.call(:hub, msg)
-  def log(msg), do: GenServer.cast(:hub, {:log, msg})
 
   def monitor_please(pid), do: GenServer.cast(:hub, {:monitor_please, pid})
 

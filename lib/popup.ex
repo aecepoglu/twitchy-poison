@@ -54,12 +54,12 @@ defmodule Popup do
   end
 
   def default_actions(), do: %{
-    action_2: {"delete", [&Popup.Actions.delete/2]},
-    escape:   {"close",  [&Popup.Actions.rotate/2]},
+    {:key, "d"}     => {"delete", [&Popup.Actions.delete/2]},
+    {:key, :escape} => {"rotate",  [&Popup.Actions.rotate/2]},
   }
 
   def set_actions(%__MODULE__{snooze: t, actions: aa}=popup) when t > 0 do
-    x = %{action_1: {"snooze #{t}'",  [&Popup.Actions.delete/2, &Popup.Actions.snooze/2]}}
+    x = %{{:key, "s"} => {"snooze #{t}'",  [&Popup.Actions.delete/2, &Popup.Actions.snooze/2]}}
     %{popup | actions: Map.merge(aa, x)}
   end
   def set_actions(%__MODULE__{}=popup), do: popup
@@ -72,7 +72,7 @@ defmodule Popup do
 
     actions = popup.actions
     |> Map.to_list
-    |> Enum.map(fn {key, {name, _}} -> "(#{key} => #{name})" end)
+    |> Enum.map(fn {{:key, key}, {name, _}} -> "(#{key} => #{name})" end)
     |> Enum.join(" ")
 
     body = [
@@ -86,7 +86,6 @@ defmodule Popup do
     body
     |> Enum.with_index( fn txt, i -> IO.ANSI.cursor(y0 + i, x0) <> txt end)
     |> Enum.join
-    |> IO.puts
   end
 
   def update(%Popup{actions: actions}=popup, action, model0) do

@@ -10,6 +10,7 @@ defmodule Chore do
 
   def empty(), do: []
   def rotate([h | t]), do: t ++ [h]
+  def retate([]), do: []
 
   def serialise(list) when is_list(list), do: Enum.map(list, &serialise/1)
   def serialise(%Chore{}=x), do: "#{x.duration} #{x.category} #{x.label}"

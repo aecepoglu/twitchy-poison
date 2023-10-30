@@ -90,6 +90,7 @@ defmodule Input.Socket do
   end
   defp handle({:error, _}=err),    do: err
 
+
   defp process(["done"]),          do: cast([:task, :done])
   defp process(["push " <> x]),    do: cast([:task, :add, x, :push])
   defp process(["insert " <> x]),  do: cast([:task, :add, x, :last])
@@ -119,6 +120,7 @@ defmodule Input.Socket do
   defp process(["rewind " <> n]), do: cast({:rewind, String.to_integer(n)})
   defp process([line]),      do: line  |> Message.parse |> process_parsed
   defp process([_|_]=lines), do: lines |> Message.parse |> process_parsed
+
   defp process_parsed({:irc, :connect, ch}), do: IRC.connect(ch)
   defp process_parsed({:irc, :disconnect, ch}), do: IRC.disconnect(ch)
   defp process_parsed({:irc, :join, ch, room}), do: IRC.join(ch, room)

@@ -11,9 +11,9 @@ defmodule Model do
              tmp: nil,
              notification: nil,
              chatroom: nil,
+             tail_chatroom: false,
              logs: [],
-             options: %{follow_chat_live?: true,
-                        split_v?: true,
+             options: %{split_v?: true,
                         },
              ]
 
@@ -62,26 +62,20 @@ defmodule Model do
       }
   end
 
-  def update(%Model{popups: [h | _]}=m, update), do: Popup.update(h, update, m)
-
   def update(m, :refresh), do: %{m | size: get_win_size()}
-  def update(m, {:dir, :up}) when m.mode == :breakprep, do: %{m | tmp: Break.make_longer(m.tmp) |> Break.set_chore(m.chores)}
-  def update(m, {:dir, :down}) when m.mode == :breakprep, do: %{m | tmp: Break.make_shorter(m.tmp) |> Break.set_chore(m.chores)}
-  def update(m, {:dir, :right}) when m.mode == :breakprep do
-    chores = m.chores |> Chore.rotate
-    %{m | tmp: m.tmp |> Break.set_chore(chores), chores: chores}
-  end
-  def update(m, :escape), do: %{m | mode: :work, tmp: nil}
-  def update(m, {:dir, _}), do: m
 
-  def update(m, :start_break) when m.mode == :work, do:
+  def update(%Model{popups: [h | _]}=m, update), do: Popup.update(h, update, m)
+  def update(m, x) when m.mode == :breakprep, do: BreakPrep.update(m.tmp, x, m)
+  def update(m, x) when m.mode == :break, do: Break.update(m.tmp, x, m)
+
+  def update(m, {:key, "b"}) when m.mode == :work, do:
     %{m |
       mode: :breakprep,
       tmp: Break.make(FlowState.suggest(m))
       }
-  def update(m, :start_break) when m.mode == :breakprep, do: %{m | mode: :break}
-  def update(m, :start_break) when m.mode == :break, do: %{m | mode: :work}
-
+  def update(m, {:key, :space}) when m.mode == :chat do
+    %{m | tail_chatroom: :once}
+  end
   def update(m, :debug), do: %{m | mode: :debug}
   def update(m, {:put_chores, x}), do: %{m | chores: x}
 
@@ -150,26 +144,35 @@ defmodule Model do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
     IO.write("#{width}x#{height} too small")
   end
-  def render(%Model{mode: :debug}=m) do
+  def render(%Model{}=m) do
+    m_ = render_contents(m)
+    case m.popups do
+      [popup | tl] -> Popup.render(popup, m.size, length(tl))
+      _ -> ""
+    end |> IO.write
+    m_
+  end
+
+  def render_contents(%Model{mode: :debug}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
     IO.write("DEBUG\n\r")
     {width, height} = m.size
     IO.write("size #{width}x#{height}\n\r")
     IO.write("size #{Hourglass.duration(m.hg)}\n\r")
   end
-  def render(%Model{mode: :breakprep}=m) do
+  def render_contents(%Model{mode: :breakprep}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
-    Break.render(m.tmp, :breakprep, m.size)
+    BreakPrep.render(m.tmp, m.size)
   end
-  def render(%Model{mode: :break}=m) do
+  def render_contents(%Model{mode: :break}=m) do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
-    Break.render(m.tmp, :break, m.size)
+    Break.render(m.tmp, m.size)
   end
-  def render(%Model{mode: :work}=m) do
+  def render_contents(%Model{mode: :work}=m) do
     IO.write(IO.ANSI.cursor(1, 1) <> IO.ANSI.clear())
     render_work(m, embedded: false)
   end
-  def render(%Model{mode: :chat}=m) do
+  def render_contents(%Model{mode: :chat}=m) do
     IO.write(IO.ANSI.cursor(1, 1) <> IO.ANSI.clear())
     {width, height} = m.size
     IO.write(IO.ANSI.cursor(1, 1))
@@ -185,12 +188,13 @@ defmodule Model do
     {lines, unread}
       = IRC.Room.render_and_read(pid, {width, h_rmd - 1},
                                  indent: " ",
-                                 skip_unread: not(m.options.follow_chat_live?)
+                                 skip_unread: m.tail_chatroom == false
                                  )
     lines
     |> Enum.join("\n\r")
     |> IO.write()
     IO.write("\n\rremainging unread: #{unread} #{Time.utc_now()}")
+    %{m | tail_chatroom: m.tail_chatroom == true}
   end
 
   defp render_work(%Model{size: {width, height}}=m, embedded: embed?) do
@@ -210,12 +214,8 @@ defmodule Model do
       ""
     end
     IO.write(IO.ANSI.cursor(height, 1) <> notification)
-    case m.popups do
-      [popup | tl] -> Popup.render(popup, m.size, length(tl))
-      _ -> nil
-    end
-    IO.write(IO.ANSI.cursor(height, 1))
   end
+
 end
 
 defmodule FlowState do

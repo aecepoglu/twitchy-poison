@@ -27,7 +27,7 @@ defmodule ModelTest do
     assert model.popups == [Popup.make(:idle, "split your task", snooze: 5)]
     assert model.upcoming == []
 
-    model = model |> Model.update(:action_1)
+    model = model |> Model.update({:key, "s"})
     assert model.popups == []
     assert length(model.upcoming) == 1
 
