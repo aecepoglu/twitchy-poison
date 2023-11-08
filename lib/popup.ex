@@ -41,7 +41,10 @@ defmodule Bordered do
 end
 
 defmodule Popup do
-  defstruct [:id, :label, actions: %{}, snooze: 0]
+  defstruct [:id, :label,
+             actions: %{},
+             snooze: 0,
+             ]
 
   def make(id, label, opts \\ []) do
     %Popup{
@@ -59,7 +62,7 @@ defmodule Popup do
   }
 
   def set_actions(%__MODULE__{snooze: t, actions: aa}=popup) when t > 0 do
-    x = %{{:key, "s"} => {"snooze #{t}'",  [&Popup.Actions.delete/2, &Popup.Actions.snooze/2]}}
+    x = %{{:key, :right} => {"snooze #{t}'",  [&Popup.Actions.delete/2, &Popup.Actions.snooze/2]}}
     %{popup | actions: Map.merge(aa, x)}
   end
   def set_actions(%__MODULE__{}=popup), do: popup
@@ -95,6 +98,17 @@ defmodule Popup do
     end
   end
 
+  def label(%Popup{id: :rest}=popup, label) do
+    %{popup | label: label}
+  end
+end
+
+defmodule Popup.Known do
+  def rest(), do:
+    Popup.make(:rest, "take a break", snooze: 15)
+
+  def idle(), do:
+    Popup.make(:idle, "split your task", snooze: 5)
 end
 
 defmodule Popup.List do
@@ -109,5 +123,10 @@ defmodule Popup.List do
   def delete(list, nil), do: list
   def delete(list, id) when is_atom(id) do
     Enum.filter(list, fn %Popup{id: x} -> id == x end)
+  end
+
+  def concat(olds, news) do
+    existing = ids(olds)
+    Enum.filter(news, &not(MapSet.member?(existing, &1.id))) ++ olds
   end
 end

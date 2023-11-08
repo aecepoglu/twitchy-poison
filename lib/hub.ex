@@ -9,8 +9,7 @@ defmodule Hub do
 
   @impl true
   def init(nil) do
-    {:ok, _tref1} = :timer.send_interval(:timer.seconds(60), :tick_minute)
-    {:ok, _tref2} = :timer.send_interval(:timer.seconds(1), :tick_second)
+    {:ok, _tref1} = :timer.send_interval(:timer.seconds(60), :tick)
     {:ok, Model.make(create_initial_reminders: true)}
   end
 
@@ -19,7 +18,7 @@ defmodule Hub do
     Process.monitor(pid)
     {:noreply, state}
   end
-  def handle_cast(event, state) when event in [:tick_minute, :tick_second] and @ignore_ticks do
+  def handle_cast(event, state) when event == :tick and @ignore_ticks do
     Model.update(state, event)
     |> noreply
   end
@@ -43,14 +42,12 @@ defmodule Hub do
   end
 
   @impl true
-  def handle_info(:tick_minute, state), do: handle_cast(:tick_minute, state)
-  def handle_info(:tick_second, state) when state.mode == :break, do: handle_cast(:tick_second, state)
-  def handle_info(:tick_second, state), do: {:noreply, state}
+  def handle_info(:tick, state), do: handle_cast(:tick, state)
   def handle_info(msg, state) do
     {:noreply, Model.log(msg, state)}
   end
 
-  def tick(), do: GenServer.cast(:hub, :tick_minute)
+  def tick(), do: GenServer.cast(:hub, :tick)
   def task_disband(), do: GenServer.cast(:hub, :task_disband)
   def get_cur_task(), do: GenServer.call(:hub, :task_get_cur)
   def refresh(), do: GenServer.cast(:hub, :refresh)

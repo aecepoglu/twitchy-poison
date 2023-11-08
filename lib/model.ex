@@ -2,16 +2,17 @@ defmodule Model do
   alias Progress.Hourglass, as: Hourglass
 
   defstruct [:size,
+             goal: Goal.empty(),
              todo: Todo.empty(),
              hg: Hourglass.make(),
              chores: Chore.empty(),
              popups: [],
-             upcoming: Upcoming.empty(),
+             upcoming: Upcoming.empty()
+                       |> Upcoming.add(Popup.Known.rest(), 45),
              mode: :work,
-             tmp: nil,
              notification: nil,
              chatroom: nil,
-             tail_chatroom: false,
+             tail_chatroom: 33,
              logs: [],
              options: %{split_v?: true,
                         },
@@ -21,13 +22,7 @@ defmodule Model do
     x = %__MODULE__{
       size: get_win_size(),
     }
-    if cir do
-      x
-      |> add_initial_popups
-      |> add_chore_popups
-    else
-      x
-    end
+    if cir do add_initial_popups(x) else x end
   end
 
   def log(msg, m) do
@@ -39,17 +34,22 @@ defmodule Model do
   def ask(:everything, m), do: m
   def ask({:option, k}, m), do: {:ok, Map.get(m.options, k, "undefined")}
 
-  def update(m, :tick_minute) do
-    m
-    |> tick(:hg)
-    |> tick(:upcoming)
+  def update(m, :tick) do
+    %{m | hg: Hourglass.tick(m.hg, m.mode),
+          upcoming: Upcoming.tick(m.upcoming)
+     }
     |> popup_from_time_stuff()
     |> popup_from_upcoming()
   end
+
   def update(m, {:log, msg}), do: log(msg, m)
-  def update(m, :tick_second) when m.mode == :break, do: %{m | tmp: Break.tick(m.tmp)}
-  def update(m, {:received_chat_msg, from}), do: %{m | notification: from}
-  def update(m, {:rewind, n}), do: %{m | hg: Hourglass.rewind(m.hg, n)}
+
+  def update(m, {:received_chat_msg, from}), do:
+    %{m | notification: from}
+
+  def update(m, {:rewind, n}), do:
+    %{m | hg: Hourglass.rewind(m.hg, n)}
+
   def update(m, [:task | tl]) do
     {dp, todo_} = task_update(m.todo, tl)
     %{m | todo: todo_,
@@ -62,76 +62,101 @@ defmodule Model do
       }
   end
 
-  def update(m, :refresh), do: %{m | size: get_win_size()}
+  def update(m, {:goal, :set, x}), do:
+    %{m | goal: Goal.set(m.goal, x)}
+  def update(m, {:goal, :unset}), do:
+    %{m | goal: Goal.empty()}
+  def update(m, {:goal, :envelop}), do:
+    %{m | goal: Goal.empty(),
+          todo: if Goal.empty?(m.goal) do
+                  m.todo
+                else
+                  Todo.envelop(m.todo, m.goal)
+                end}
 
-  def update(%Model{popups: [h | _]}=m, update), do: Popup.update(h, update, m)
-  def update(m, x) when m.mode == :breakprep, do: BreakPrep.update(m.tmp, x, m)
-  def update(m, x) when m.mode == :break, do: Break.update(m.tmp, x, m)
+  def update(m, :refresh), do:
+    %{m | size: get_win_size()}
 
-  def update(m, {:key, "b"}) when m.mode == :work, do:
-    %{m |
-      mode: :breakprep,
-      tmp: Break.make(FlowState.suggest(m))
-      }
-  def update(m, {:key, :space}) when m.mode == :chat do
-    %{m | tail_chatroom: :once}
-  end
-  def update(m, :debug), do: %{m | mode: :debug}
-  def update(m, {:put_chores, x}), do: %{m | chores: x}
+  def update(%Model{popups: [h | _]}=m, update), do:
+    Popup.update(h, update, m)
+
+  def update(m, {:mode, :break}), do:
+    %{m | mode: :break, upcoming: Upcoming.remove(m.upcoming, :rest)}
+  def update(m, {:mode, :work}), do:
+    %{m | mode: :work} |> schedule_next_break
+  def update(m, {:mode, mode}) when mode in [:meeting], do:
+    %{m | mode: mode}
+
+  def update(m, {:key, :space}) when m.mode == :chat, do:
+    %{m | tail_chatroom: Util.UnlimitedArithmetic.add(m.tail_chatroom, 1)}
+  def update(m, {:key, :escape}) when m.mode == :chat, do:
+    %{m | mode: :work}
+
+  def update(m, :debug), do:
+    %{m | mode: :debug}
+
+  def update(m, {:chores, :put, x}), do:
+    %{m | chores: x}
+  def update(m, {:chores, :delete, x}), do:
+    %{m | chores: Chore.remove(m.chores, x)}
 
   def update(m, :focus_chat) when m.notification != nil, do:
     %{m | mode: :chat, chatroom: m.notification, notification: nil}
-  def update(m, {:focus_chat, channel, room}) do
+  def update(m, {:focus_chat, channel, room}), do:
     %{m | mode: :chat, chatroom: {channel, room}}
-  end
-  def update(m, {:option, key, value}) do
+
+  def update(m, {:option, "tail", "infinity"}), do:
+    %{m | tail_chatroom: :infinity}
+  def update(m, {:option, key, value}), do:
     Map.update!(m, :options, &Map.put(&1, key, value))
-  end
+
   def update(m, _), do: m
 
-  defp tick(m, :hg) do
-    mode = if Todo.head_meeting?(m.todo) do :meeting else m.mode end
-    %Model{m | hg: Hourglass.tick(m.hg, mode)}
-  end
-  defp tick(m, :upcoming), do: %Model{m | upcoming: Upcoming.tick(m.upcoming)}
-
   defp popup_from_time_stuff(m) do
-    %{m | popups: FlowState.alarms(m) ++ m.popups}
+    popups = m
+             |> FlowState.alarms
+             |> then(& Popup.List.concat(&1, m.popups))
+    %{m | popups: popups}
   end
 
   defp popup_from_upcoming(m) do
-    {upcoming, popups} = Upcoming.popup(m.upcoming)
+    {upcoming, popups} = Upcoming.popup(m.upcoming, &FlowState.ready_for?(m, &1))
+    popups_ = Enum.map(popups, &FlowState.recontextualise(&1, m))
     %{m | upcoming: upcoming,
-          popups: popups ++ m.popups}
+          popups: Popup.List.concat(m.popups, popups_)}
   end
 
-  defp task_update(todo, [:add, task, pos]), do: {1 , Todo.add(todo, %Todo{label: task}, pos)}
-  defp task_update(todo, [:done]),           do: {10, Todo.mark_done!(todo)}
-  defp task_update(todo, [:disband]),        do: {0 , Todo.disband(todo)}
-  defp task_update(todo, [:join]),           do: {0 , Todo.join(todo)}
-  defp task_update(todo, [:join_eager]),     do: {0 , Todo.join_eager(todo)}
-  defp task_update(todo, [:pop]),            do: {0 , Todo.pop(todo)}
-  defp task_update(todo, [:del]),            do: {1 , Todo.del(todo)}
-  defp task_update(todo, [:put_cur, x]),     do: {5 , Todo.upsert_head(todo, Todo.deserialise(x))}
-  defp task_update(todo, [:rot, mode]),      do: {0 , Todo.rot(todo, mode)}
-  defp task_update(todo, [:persist]),        do: {0 , Todo.persist!(todo)}
+  defp task_update(todo, [:add, task, pos]), do: {:small, Todo.add(todo, %Todo{label: task}, pos)}
+  defp task_update(todo, [:done]),           do: {:big,   Todo.mark_done!(todo)}
+  defp task_update(todo, [:disband]),        do: {:none,  Todo.disband(todo)}
+  defp task_update(todo, [:join]),           do: {:none,  Todo.join(todo)}
+  defp task_update(todo, [:join_eager]),     do: {:none,  Todo.join_eager(todo)}
+  defp task_update(todo, [:pop]),            do: {:none,  Todo.pop(todo)}
+  defp task_update(todo, [:del]),            do: {:small, Todo.del(todo)}
+  defp task_update(todo, [:put_cur, x]),     do: {:small, Todo.upsert_head(todo, Todo.deserialise(x))}
+  defp task_update(todo, [:rot, mode]),      do: {:none,  Todo.rot(todo, mode)}
+  defp task_update(todo, [:persist]),        do: {:none,  Todo.persist!(todo)}
 
   defp add_initial_popups(%Model{}=m) do
-    if m.todo == Todo.empty() do
-      popup = Popup.make(:init_tasks, "Add some tasks.")
-      %{m | popups: [popup | m.popups]}
-    else
-      m
-    end
-  end
+    popups = [
+      if m.todo == Todo.empty() do
+        [Popup.make(:init_tasks, "Add some tasks.")]
+      else
+        []
+      end,
+      if m.chores == Chore.empty() do
+        [Popup.make(:init_chores, "Don't forget to load up your chores.")]
+      else
+        []
+      end
+    ] ++ m.popups
+    |> Enum.flat_map(& &1)
 
-  defp add_chore_popups(%Model{}=m) do
-    if m.chores == Chore.empty() do
-      popup = Popup.make(:init_chores, "Don't forget to load up your chores.")
-      %{m | popups: [popup | m.popups]}
-    else
-      m
-    end
+    %{m | popups: popups}
+  end
+  defp schedule_next_break(%Model{}=m) do
+    delay = FlowState.suggest_next_break(m)
+    %{m | upcoming: m.upcoming |> Upcoming.add(Popup.Known.rest(), delay)}
   end
 
   defp get_win_size() do
@@ -160,14 +185,6 @@ defmodule Model do
     IO.write("size #{width}x#{height}\n\r")
     IO.write("size #{Hourglass.duration(m.hg)}\n\r")
   end
-  def render_contents(%Model{mode: :breakprep}=m) do
-    IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
-    BreakPrep.render(m.tmp, m.size)
-  end
-  def render_contents(%Model{mode: :break}=m) do
-    IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
-    Break.render(m.tmp, m.size)
-  end
   def render_contents(%Model{mode: :work}=m) do
     IO.write(IO.ANSI.cursor(1, 1) <> IO.ANSI.clear())
     render_work(m, embedded: false)
@@ -188,24 +205,32 @@ defmodule Model do
     {lines, unread}
       = IRC.Room.render_and_read(pid, {width, h_rmd - 1},
                                  indent: " ",
-                                 skip_unread: m.tail_chatroom == false
+                                 skip_unread: Util.UnlimitedArithmetic.positive?(m.tail_chatroom)
                                  )
     lines
     |> Enum.join("\n\r")
     |> IO.write()
-    IO.write("\n\rremainging unread: #{unread} #{Time.utc_now()}")
-    %{m | tail_chatroom: m.tail_chatroom == true}
+
+    tail_indicator = Util.UnlimitedArithmetic.str(m.tail_chatroom)
+    IO.write("\n\rrmg: #{unread} @#{Time.utc_now()}, #{tail_indicator}")
+    %{m | tail_chatroom: Util.UnlimitedArithmetic.subtract(m.tail_chatroom, 1) }
   end
 
   defp render_work(%Model{size: {width, height}}=m, embedded: embed?) do
     if width < 90 do
-      Hourglass.render(m.hg, m.size)
+      Hourglass.render(m.hg, {width, height})
     else
-      Hourglass.render(m.hg, {60, height})
+      Hourglass.render(m.hg, {60, 1})
       <> " " <> Upcoming.render(m.upcoming, {width - 61, height})
     end <> "\n\r" |> IO.write
 
-    Todo.render(m.todo, m.size) |> IO.puts
+    { n_goal, goal_lines} = Goal.render(m.goal, {width, height})
+    {_n_todo, todo_lines} = Todo.render(m.todo, {width, height - n_goal - 1})
+
+    goal_lines <> "\n\r"
+    <> Geometry.hor_line(width, '+') <> "\n\r"
+    <> todo_lines
+    |> IO.write
 
     notification = if m.notification && not(embed?) do
       IO.ANSI.clear_line() <> "New chat notifications"
@@ -214,53 +239,5 @@ defmodule Model do
       ""
     end
     IO.write(IO.ANSI.cursor(height, 1) <> notification)
-  end
-
-end
-
-defmodule FlowState do
-  @factor 3
-
-  def alarms(%Model{}=m) do
-    stats = %{break: _, idle: _, work: _} = Progress.Trend.recent_stats(m.hg |> elem(0))
-    ids = MapSet.union(Popup.List.ids(m.popups), Upcoming.ids(m.upcoming))
-
-    list_alarms()
-    |> Enum.filter(fn {id, pred, _} -> Popup.List.new_id?(ids, id) && pred.(m, stats) end)
-    |> Enum.map(fn    {_,  _,    x} -> x end)
-  end
-
-  def suggest(%Model{}=m) do
-    Progress.Hourglass.past(m.hg)
-    |> suggest_break_len()
-  end
-
-  def need_break?(past, %Progress.CurWin{}=now) do
-    (now.broke == 0) && (suggest_break_len(past) > 0)
-  end
-
-  def suggest_break_len(past) do
-    %{break: b, idle: _, work: w} = Progress.Trend.recent_stats(past)
-    if b * @factor < w do
-      0
-    else
-      %{break: b, idle: _, work: w} = Progress.Trend.stats(past)
-      (floor(w / 3) - b)
-      |> then(& &1 * 4 * 60) # TODO hardcoded
-      |> max(0)
-    end
-  end
-
-  defp list_alarms() do
-    [
-      { :idle,
-        fn %Model{hg: hg}, _ -> Progress.Hourglass.idle?(hg) end,
-        Popup.make(:idle, "split your task", snooze: 5)
-        },
-      { :rest,
-        fn _, s -> s.work >= 10 && s.idle > 1 end,
-        Popup.make(:rest, "take a break", snooze: 15)
-        },
-    ]
   end
 end

@@ -3,6 +3,7 @@ defmodule Todo.Parser do
     {done, rest} =  case txt do
       "x " <> k -> {true, k}
       "  " <> k -> {false, k}
+      k         -> {false, k}
     end
 
     found = String.split(rest)

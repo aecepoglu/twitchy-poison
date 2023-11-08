@@ -14,8 +14,8 @@ switch $argv[1]
 	case multi
 		multiline $argv[2..] | sed -e '$ ! s/^/... /' | socat /tmp/goldfish.sock -
 	case chat
-		while read -P "say >" r
-			echo "irc chat twitch whimsicallymade" $r | socat /tmp/goldfish.sock -
+		while read -P ":" r
+			echo "irc chat twitch whimsicallymade" $r | socat /tmp/goldfish.sock - > /dev/null
 		end
 	case '*'
 		echo $argv | socat /tmp/goldfish.sock -

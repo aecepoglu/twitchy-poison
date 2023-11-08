@@ -1,12 +1,43 @@
 defmodule ModelTest do
   use ExUnit.Case
 
+  defp times(x0, n, f) do
+    Enum.reduce(1..n, x0, fn _, xN -> f.(xN) end)
+  end
+
+  test "taking a break gets rid of the break reminder" do
+    upcoming = Upcoming.empty()
+      |> Upcoming.add(Popup.Known.rest(), 60)
+
+    m = %Model{}
+        |> Map.put(:upcoming, upcoming)
+        |> Model.update({:mode, :break})
+
+    assert m.upcoming == Upcoming.empty()
+  end
+
+  test "returning to work after a break creates a break reminder" do
+    m = %Model{}
+    |> Map.put(:mode, :break)
+    |> Map.put(:upcoming, Upcoming.empty())
+    |> times(7, & Model.update(&1, :tick))
+    |> Model.update({:mode, :work})
+
+    assert m.upcoming ==
+      Upcoming.empty
+      |> Upcoming.add(Popup.Known.rest(), 21)
+  end
+
   test "time spent while in meeting is logged as work" do
-    %Model{ hg: {_, now} } =
-      %Model{}
-      |> Model.update([:task, :add, "@meeting w/ someone important", :next])
-      |> Model.update(:tick_minute)
-    assert now.done > 0
+      %{work: worked} =
+        %Model{}
+        |> Model.update({:mode, :meeting})
+        |> Model.update(:tick)
+        |> Map.get(:hg)
+        |> Progress.Hourglass.past()
+        |> Progress.Trend.stats()
+
+    assert worked == 1
   end
 
   test "be reminded to populate stuff in the beginning" do
@@ -18,130 +49,52 @@ defmodule ModelTest do
     ])
   end
 
-  test "stay idle, see popup, snooze it, wait, see it again" do
-    m0 = %Model{}
-    model = Enum.reduce(1..50, m0, fn _, acc ->
-      acc
-      |> Model.update(:tick_minute)
-    end)
-    assert model.popups == [Popup.make(:idle, "split your task", snooze: 5)]
-    assert model.upcoming == []
+  test "pack the goal together with the done tasks" do
+    m = %Model{}
+    |> Model.update({:goal, :set, "my goal"})
+    |> Model.update([:task, :add, "task 1", :last])
+    |> Model.update([:task, :add, "task 2", :last])
+    |> Model.update([:task, :add, "task 3", :last])
+    |> Model.update([:task, :join])
+    |> Model.update([:task, :done])
+    |> Model.update([:task, :done])
+    |> Model.update({:goal, :envelop})
 
-    model = model |> Model.update({:key, "s"})
+    assert m.goal == Goal.empty()
+
+    assert m.todo == Todo.empty()
+    |> Todo.add(%Todo{label: "my goal"}, :last)
+    |> Todo.add(%Todo{label: "task 1"}, :last)
+    |> Todo.add(%Todo{label: "task 2"}, :last)
+    |> Todo.join_eager()
+    |> Todo.add(%Todo{label: "task 3"}, :last)
+    |> Todo.mark_done!()
+    |> Todo.mark_done!()
+    |> Todo.mark_done!()
+  end
+
+  test "stay idle, see popup, snooze it, wait, see it again" do
+    m0 = %Model{} |> Map.put(:upcoming, Upcoming.empty())
+
+    model = Enum.reduce(1..90, m0, fn _, acc ->
+      acc
+      |> Model.update(:tick)
+    end)
+    assert model.upcoming == []
+    assert model.popups == [Popup.Known.idle()]
+
+    model = model |> Model.update({:key, :right})
     assert model.popups == []
     assert length(model.upcoming) == 1
 
     model = model
-    |> Model.update(:tick_minute)
-    |> Model.update(:tick_minute)
-    |> Model.update(:tick_minute)
-    |> Model.update(:tick_minute)
-    |> Model.update(:tick_minute)
+    |> Model.update(:tick)
+    |> Model.update(:tick)
+    |> Model.update(:tick)
+    |> Model.update(:tick)
+    |> Model.update(:tick)
 
-    assert model.popups == [Popup.make(:idle, "split your task", snooze: 5)]
     assert model.upcoming == []
-  end
-end
-
-defmodule FlowStateTest do
-  use ExUnit.Case
-  setup_all  do
-    %{model: %Model{
-      hg: Progress.Hourglass.make(duration: 1)
-    }}
-  end 
-
-  test "suggest a break if I've worked long enough", %{model: m} do
-    ops = [:work, :idle]
-    Enum.each(1..32, fn _ ->
-      _popups = m
-
-      |> log_activity(Enum.map(1..10, fn _ -> Enum.random(ops)  end))
-      |> FlowState.alarms
-
-      assert match?(_popups, [%Popup{label: "take a break"}])
-    end)
-  end
-
-  test "break suggestions should take into account only the time spent since last break", %{model: m} do
-    ops =[:work,:work,:work,:work, :idle,:idle,:idle, :break]
-    Enum.any?(1..32, fn _ ->
-      activity = Enum.map(1..10, fn _ -> Enum.random([:work, :idle]) end) # TODO 32 -> 1024
-
-      m1 = m
-      |> log_activity(Enum.map(1..32, fn _ -> Enum.random(ops) end))
-      |> log_activity([:break])
-      |> log_activity(activity)
-
-      m2 = m
-      |> log_activity(activity)
-
-      [p1, p2] = [m1, m2] |> Enum.map(&FlowState.alarms/1)
-
-      if p1 != p2 do
-        IO.puts(Progress.Hourglass.string(m1.hg, {50, 1}))
-        IO.puts(Progress.Hourglass.string(m2.hg, {50, 1}))
-        assert p1 == p2
-        false
-      else
-        true
-      end
-    end)
-  end
-
-  @idle_activity [:idle, :idle, :idle]
-
-  test "suggest splitting a task if I'm stuck", %{model: m} do
-    _popups = m
-    |> log_activity(@idle_activity)
-    |> FlowState.alarms
-
-    assert match?(_popups, [%Popup{label: "split your task"}])
-  end
-
-  test "I'm not stuck if I've pushed in some work", %{model: m} do
-    popups = m
-    |> log_activity(@idle_activity ++ [:work])
-    |> FlowState.alarms
-
-    assert popups == []
-  end
-
-  test "I'm not stuck if I've attempted some work", %{model: m} do
-    popups = m
-    |> log_activity(@idle_activity)
-    |> Map.update!(:hg, &Progress.Hourglass.progress(&1, 1))
-    |> FlowState.alarms
-
-    assert popups == []
-  end
-
-  test "delay suggesting breaks if I'm very well focused", %{model: m} do
-    popups = m
-    |> log_activity(Enum.map(1..10, fn _ -> :work end))
-    |> FlowState.alarms
-
-    assert popups == []
-  end
-
-  test "don't suggest a break if I've already declined the offer", %{model: m} do
-    upcoming = Upcoming.empty() |> Upcoming.add(Popup.make(:idle, "...", snooze: 15))
-    popups = %{m | upcoming: upcoming}
-    |> log_activity(@idle_activity)
-    |> FlowState.alarms
-
-    assert popups == []
-  end
-
-  defp log_activity(%Model{hg: hg0}=m, activity) do
-    alias Progress.Hourglass, as: Hg
-    hg = Enum.reduce(activity, hg0, fn op, hg ->
-      case op do
-        :work  -> hg |> Hg.progress(1) |> Hg.tick(:work)
-        :idle  -> hg |> Hg.tick(:work)
-        :break -> hg |> Hg.tick(:break)
-      end
-    end)
-    %{m | hg: hg}
+    assert model.popups == [Popup.Known.idle()]
   end
 end

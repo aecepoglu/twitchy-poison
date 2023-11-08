@@ -12,6 +12,15 @@ defmodule Todo do
 
   def empty(), do: []
 
+  def envelop(todos, title) when is_binary(title) do
+    x = %Todo{label: title, done: true}
+    case todos do
+      [h | t] when is_list(h) -> [[x | Enum.map(h, &mark_done!/1)] | t]
+      [h | t]                 -> [[x, mark_done!(h)] | t]
+      []                      -> [[x]]
+    end
+  end
+
   def rot([h | t], :outside), do: add(t, h, :last)
   def rot([[hh | ht] | t], _) , do: [add(ht, hh, :last) | t]
   def rot(x, _), do: x
@@ -30,6 +39,7 @@ defmodule Todo do
   end
 
   def add( [],      x, _    ), do: [x]
+  def add( [h | t], x, :next) when h.done, do: [x, h | t]
   def add( [h | t], x, :next), do: [h, x | t]
   def add( [h | t], x, :push), do: [x, h | t]
   def add( [%Todo{done: true}|_]=t, x, :last), do: [x | t]
@@ -45,15 +55,12 @@ defmodule Todo do
   def del([_ | t]), do: t
   def del([]), do: []
 
-  def mark_done!([%Todo{done: false}=h | t]) do
-    # FIXME Todo.Hook.run!(h.hook)
-    t ++ [%{h | done: true}]
+  def mark_done!([%Todo{}=h | t]) do
+    t ++ [mark_done!(h)]
   end
   def mark_done!([h | t]) when is_list(h) , do: [mark_done!(h) | t]
-  def mark_done!([]), do: []
-
-  def head_meeting?([%Todo{done: false, label: "@meeting" <> _} | _]), do: true
-  def head_meeting?(_), do: false
+  def mark_done!(%Todo{done: false}=x), do: %{x | done: true} # FIXME Todo.Hook.run!(h.hook)
+  def mark_done!(x), do: x
 
   defp join_(a, b), do: enlist(a) ++ enlist(b)
 
@@ -108,11 +115,12 @@ defmodule Todo do
   defp color(lines, true), do: Enum.map(lines, fn x -> IO.ANSI.faint <> x <> IO.ANSI.normal end)
 
   def render(todos, {width, height}) do
-    todos
+    lines = todos
     |> strings(width, color: true)
     |> Enum.take(height) # TODO fix
     |> Enum.map(fn x -> IO.ANSI.clear_line <> x end)
-    |> Enum.join("\n\r")
+
+    {length(lines), Enum.join(lines, "\n\r")}
   end
 
   def upsert_head([_ | t], h), do: [h | t]

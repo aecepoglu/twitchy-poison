@@ -1,18 +1,26 @@
 defmodule Upcoming do
   def empty(), do: []
 
-  def popup(alarms) do
-    {fin, unfin} = Enum.split_with(alarms, fn {t, _} -> t <= 0 end)
-    fin_ = Enum.map(fin, &elem(&1, 1))
+  def popup(alarms, pred) do
+    {fin, unfin} = Enum.split_with(alarms, fn {t, x} -> t <= 0 && pred.(x) end)
+    fin_ = Enum.map(fin, fn {_, x} -> x end)
     {unfin, fin_}
   end
 
-  def add(alarms, %Popup{id: id, snooze: t}=popup) do
-    if t <= 0 || has?(alarms, id) do
-      []
+  def add(alarms, %Popup{snooze: 0}), do: alarms
+  def add(alarms, %Popup{snooze: t}=popup) do
+    add(alarms, popup, t)
+  end
+  def add(alarms, %Popup{id: id}=popup, delay) do
+    if has?(alarms, id) do
+      alarms
     else
-      [{t, popup}]
-    end ++ alarms
+      [{delay, popup} | alarms]
+    end
+  end
+
+  def remove(alarms, id) do
+    Enum.filter(alarms, fn {_, x} -> x.id != id end)
   end
 
   def tick(alarms) do

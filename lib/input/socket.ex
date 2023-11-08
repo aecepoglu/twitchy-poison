@@ -15,14 +15,19 @@ defmodule Input.Socket.Message do
   defp identify(["irc", "users", ch, room]), do: {:irc, :users, ch, room}
   defp identify(["irc", "log", ch, room, user]), do: {:irc, :log, ch, room, user}
   defp identify(["irc", "chat", ch, room | words]), do: {:irc, :chat, ch, room, Enum.join(words, " ")}
+  defp identify(["irc", "list"]), do: {:irc, :list}
   defp identify(["key", k]), do: {:keypress, k}
   defp identify(["option", k, v]), do: {:option, k, v}
   defp identify(["option", k]), do: {:option, k}
   defp identify([["chores", "put"] | lines]) do
-    chores = Enum.map(lines, &Chore.deserialise/1)
+    chores = lines |> Chore.deserialise |> Chore.sort
     {:chores, :put, chores}
   end
   defp identify(["chores", "get"]), do: {:chores, :get}
+  defp identify(["chores", "remove", n]), do: {:chores, :remove, String.to_integer(n)}
+  defp identify(["goal", "set" | words]), do: {:goal, :set, Enum.join(words, " ")}
+  defp identify(["goal", "envelop"]), do: {:goal, :envelop}
+  defp identify(["goal", "unset"]), do: {:goal, :unset}
 end
 
 defmodule Input.Socket do
@@ -90,7 +95,6 @@ defmodule Input.Socket do
   end
   defp handle({:error, _}=err),    do: err
 
-
   defp process(["done"]),          do: cast([:task, :done])
   defp process(["push " <> x]),    do: cast([:task, :add, x, :push])
   defp process(["insert " <> x]),  do: cast([:task, :add, x, :last])
@@ -129,10 +133,19 @@ defmodule Input.Socket do
   defp process_parsed({:irc, :switch, ch, room}), do: cast({:focus_chat, ch, room})
   defp process_parsed({:irc, :log, ch, room, user}), do: IRC.log_user(ch, room, user)
   defp process_parsed({:irc, :chat, ch, room, msg}), do: IRC.text(ch, room, msg)
+  defp process_parsed({:irc, :list}) do
+    reply = IRC.RoomRegistry.list()
+            |> Enum.map(fn {a, b} -> a <> " " <> b end)
+    {:ok, reply}
+  end
   defp process_parsed({:chores, :get}),         do: call(:chores)
-  defp process_parsed({:chores, :put, chores}), do: cast({:put_chores, chores})
+  defp process_parsed({:chores, :put, chores}), do: cast({:chores, :put, chores})
+  defp process_parsed({:chores, :remove, i}), do: cast({:chores, :remove, i})
   defp process_parsed({:option, _k, _v}=x), do: cast(x)
   defp process_parsed({:option, _k}=x), do: call(x)
+  defp process_parsed({:goal, :set, _}=x), do: cast(x)
+  defp process_parsed({:goal, :unset}=x), do: cast(x)
+  defp process_parsed({:goal, :envelop}=x), do: cast(x)
   defp process_parsed({:keypress, k}) do
     Input.Keyboard.report(k)
     :ok

@@ -1,87 +1,76 @@
 defmodule TrendTest do
   use ExUnit.Case
   alias Progress.Trend, as: Trend
-  alias Progress.CurWin, as: CurWin
 
-  test "Trend.add sanitises the input" do
-    elems = Trend.make(3)
-    |> Trend.add(%CurWin{done: 13})
-    |> Trend.to_list
-    assert elems == [{:work, 8}]
-  end
-
-  test "Trend.add propagates the update" do
-    elems = Trend.make(3)
-    |> Trend.add(%CurWin{})
-    |> Trend.add(%CurWin{})
-    |> Trend.add(%CurWin{})
-    |> Trend.add(%CurWin{})
-    |> Trend.add(%CurWin{done: 19, broke: 0})
-    |> Trend.to_list
-    assert elems == [{:work, 8}, {:work, 8}, {:work, 3}, :idle, :idle]
-  end
-
-  test "Trend.add propagates the update after applying the non-work portion" do
-    elems = Trend.make(3)
-    |> Trend.add(%CurWin{})
-    |> Trend.add(%CurWin{})
-    |> Trend.add(%CurWin{})
-    |> Trend.add(%CurWin{})
-    |> Trend.add(%CurWin{done: 19, broke: 99})
-    |> Trend.to_list
-    assert elems == [:break, {:work, 8}, {:work, 3}, :idle, :idle]
-  end
-
-  test "Trend stats give sums of each" do
-    trend = Trend.make(3)
-    |> Trend.add(%CurWin{done: 1, broke: 3})
-    |> Trend.add(%CurWin{done: 0, broke: 0})
-    |> Trend.add(%CurWin{done: 3, broke: 1})
-    |> Trend.add(%CurWin{done: 4, broke: 0})
-    |> Trend.add(%CurWin{done: 5, broke: 3})
-    |> Trend.stats
-
-    assert trend == %{work: 1, idle: 1, break: 3}
-  end
-
-  test "count stats up until the very beginning" do
+  test "stats gives tally of everything" do
     1..50
-    |> Enum.each(fn _ -> parametrised_test() end)
+    |> Enum.each(fn duration ->
+        activity = random_activity(duration)
+        trend = activity |> log_activity(Trend.make())
+        stats = trend |> Trend.stats
+        expected = Map.merge(
+          %{work: 0, break: 0, idle: 0},
+          Enum.frequencies(activity)
+        )
+        assert stats == expected
+      end)
   end
-  defp parametrised_test() do
-    idle = CurWin.make(2)
-    work =  idle |> CurWin.work(1)
-    break = idle |> CurWin.tick(:break)
-    activities = %{idle: idle, work: work, break: break}
 
-    len = Enum.random(5..15)
-    trend = Trend.make(len)
-    activity = 1..len
-             |> Enum.map(fn _ -> Enum.random([:idle, :work, :break]) end)
-    stats = activity
-    |> Enum.map(& activities[&1])
-    |> Enum.reduce(trend, &Trend.add(&2, &1))
-    |> Trend.stats
+  test "recent_stats takes stats only after the 1st break" do
+    1..50
+    |> Enum.each(fn duration ->
+        break_duration = Enum.random(max(4 - duration, 1)..30)
+        break = 1..break_duration |> Enum.map(fn _ -> :break end)
 
-    expected = Map.merge(
-      %{work: 0, break: 0, idle: 0},
-      activity |> Enum.reverse
-               |> Enum.take(len)
-               |> Enum.frequencies())
-    assert stats == expected
+        activity = random_activity(duration, [:idle, :work])
+
+        stats_after_break =
+          random_activity(32)
+          ++ random_activity(4, [:idle, :work])
+          ++ break
+          ++ activity
+          |> log_activity(Trend.make())
+          |> Trend.recent_stats
+
+        stats_from_scratch =
+          activity
+          |> log_activity(Trend.make())
+          |> Trend.recent_stats
+          |> Map.put(:break, break_duration)
+
+        assert stats_after_break == stats_from_scratch
+      end)
   end
-end
 
-defmodule CurWinTest do
-  alias Progress.CurWin, as: CurWin
-  use ExUnit.Case
+  test "idle? is truthy if we've idled for long enough" do
+    idle = random_activity(32)
+      ++ random_activity(4, [:work, :break])
+      ++ random_activity(30, [:idle])
+      |> log_activity(Trend.make())
+      |> Trend.idle
 
-  test "CurWin.progress" do
-    cw =
-      CurWin.make(7)
-      |> CurWin.work(3)
-      |> CurWin.tick(:break, 5)
-
-    assert cw == %CurWin{val: 5, done: 3, broke: 5, dur: 7}
+    assert idle == 30
   end
+
+  test "idle? is not truthy if I've done any work" do
+    idle = random_activity(32)
+      ++ random_activity(4, [:work, :break])
+      ++ random_activity(30, [:idle])
+      ++ random_activity(1, [:work])
+      |> log_activity(Trend.make())
+      |> Trend.idle
+
+    assert idle == 0
+  end
+
+  defp random_activity(length, opts \\ [:idle, :work, :break]) do
+    Enum.map(1..length, fn _ -> Enum.random(opts) end)
+  end
+
+  defp log_activity(activity, trend) when is_list(activity) do
+    Enum.reduce(activity, trend, &log_activity/2)
+  end
+  defp log_activity(:idle,  trend), do: Trend.add(trend, {:work, :none})
+  defp log_activity(:work,  trend), do: Trend.add(trend, {:work, :small})
+  defp log_activity(:break, trend), do: Trend.add(trend, :break)
 end

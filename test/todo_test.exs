@@ -2,7 +2,20 @@ defmodule TodoTest do
   use ExUnit.Case
   import Todo
 
-  test "string" do
+  test "add next adds before the only done item" do
+    lines = empty()
+    |> add(%Todo{label: "1"}, :push)
+    |> mark_done!
+    |> add(%Todo{label: "2"}, :next)
+    |> strings(40, color: false)
+
+    assert lines == [
+      "  ⋅ 2",
+      "  ✔ 1",
+    ]
+  end
+
+  test "add" do
     lines = empty()
     |> add(%Todo{label: "1"}, :push)
     |> add(%Todo{label: "2"}, :push)
@@ -227,6 +240,7 @@ defmodule TodoTest do
       %Todo{label: "6"},
     ]
     |> render({9, 5})
+    |> elem(1)
     |> String.split("\n\r")
 
     assert lines == [

@@ -2,19 +2,21 @@ defmodule Progress.Hourglass do
   alias Progress.Trend, as: Trend
   alias Progress.CurWin, as: CurWin
 
-  def make(opts \\ []) do
-    duration = Keyword.get(opts, :duration, 4)
-    trend_bufsize = Keyword.get(opts, :trend, 180)
-    {Trend.make(trend_bufsize), CurWin.make(duration)}
+  def make() do
+    {Trend.make(), CurWin.make()}
   end
 
   def past({x, _}), do: x
   def now({_, x}), do: x
-  def duration({past, now}), do: length(past) * now.dur
+  def duration({past, _}), do: length(past) * 1
 
-  def tick(model, mode) do
-    model
-    |> tick_up(mode)
+  def tick({past, now}, mode) do
+    item = case mode do
+      :break   -> :break
+      :meeting -> {:work, :small}
+      _ ->        {:work, now}
+    end
+    {Trend.add(past, item), CurWin.make()}
   end
 
   def progress({past, now}, dv), do: {past, CurWin.work(now, dv)}
@@ -25,17 +27,8 @@ defmodule Progress.Hourglass do
     {Trend.rewind(past, k), now}
   end
 
-  defp tick_up({past, %CurWin{} = now}, mode) do
-    now_ = CurWin.tick(now, mode)
-    if CurWin.fin?(now_) do
-      {Trend.add(past, now_), CurWin.reset(now)}
-    else
-      {past, now_}
-    end
-  end
-
   def string({past, now}, {width, _}) do
-    past_ = Trend.string(past, width - 3)
+    past_ = Trend.string(past, width - 1)
     now_ = CurWin.string(now)
     "#{past_} #{now_}"
   end
@@ -46,6 +39,6 @@ defmodule Progress.Hourglass do
   end
 
   def idle?({past, now}) do
-    now.done == 0 && Trend.idle?(past)
+    CurWin.idle?(now) && Trend.idle(past) == 30
   end
 end
