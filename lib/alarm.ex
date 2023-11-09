@@ -33,8 +33,8 @@ defmodule Upcoming do
     |> Popup.List.has_id?(id)
   end
 
-  def render([{_, alarm} | _], {width, _}) do
-    alarm.label
+  def render([{t, alarm} | _], {width, _}) do
+    "#{alarm.label} in #{t}'"
     |> String.split_at(width)
     |> elem(0)
   end

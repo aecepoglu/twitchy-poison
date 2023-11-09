@@ -28,6 +28,7 @@ defmodule Input.Socket.Message do
   defp identify(["goal", "set" | words]), do: {:goal, :set, Enum.join(words, " ")}
   defp identify(["goal", "envelop"]), do: {:goal, :envelop}
   defp identify(["goal", "unset"]), do: {:goal, :unset}
+  defp identify(["suggest", "break-length"]), do: {:suggest, :break_length}
 end
 
 defmodule Input.Socket do
@@ -119,9 +120,9 @@ defmodule Input.Socket do
                                               ]}
   defp process(["auto-update yes"]), do: cast({:auto_update, true})
   defp process(["auto-update no"]),  do: cast({:auto_update, false})
-  defp process(["restart socket"]), do: {:error, :restart_socket}
-  defp process(["mode chat"]), do: cast(:focus_chat)
-  defp process(["rewind " <> n]), do: cast({:rewind, String.to_integer(n)})
+  defp process(["restart socket"]),  do: {:error, :restart_socket}
+  defp process(["mode chat"]),       do: cast(:focus_chat)
+  defp process(["rewind"]),          do: cast(:rewind)
   defp process([line]),      do: line  |> Message.parse |> process_parsed
   defp process([_|_]=lines), do: lines |> Message.parse |> process_parsed
 
@@ -146,6 +147,7 @@ defmodule Input.Socket do
   defp process_parsed({:goal, :set, _}=x), do: cast(x)
   defp process_parsed({:goal, :unset}=x), do: cast(x)
   defp process_parsed({:goal, :envelop}=x), do: cast(x)
+  defp process_parsed({:suggest, :break_length}=x), do: call(x)
   defp process_parsed({:keypress, k}) do
     Input.Keyboard.report(k)
     :ok

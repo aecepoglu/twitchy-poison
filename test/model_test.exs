@@ -83,7 +83,7 @@ defmodule ModelTest do
     assert model.upcoming == []
     assert model.popups == [Popup.Known.idle()]
 
-    model = model |> Model.update({:key, :right})
+    model = model |> Model.update({:key, "s"})
     assert model.popups == []
     assert length(model.upcoming) == 1
 

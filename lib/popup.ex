@@ -62,7 +62,7 @@ defmodule Popup do
   }
 
   def set_actions(%__MODULE__{snooze: t, actions: aa}=popup) when t > 0 do
-    x = %{{:key, :right} => {"snooze #{t}'",  [&Popup.Actions.delete/2, &Popup.Actions.snooze/2]}}
+    x = %{{:key, "s"} => {"snooze #{t}'",  [&Popup.Actions.delete/2, &Popup.Actions.snooze/2]}}
     %{popup | actions: Map.merge(aa, x)}
   end
   def set_actions(%__MODULE__{}=popup), do: popup

@@ -1,19 +1,37 @@
 defmodule Todo.Hook do
-  def run!([]), do: nil
-  def run!([{:todobqn, _key} | _]), do: nil
+  def run!(list) do
+    list
+    |> Keyword.filter(fn {key, _} -> key == :todobqn end)
+    |> Keyword.values
+    |> External.TodoBqn.complete(:ids)
+  end
+end
+
+defmodule Todo.Parser do
+  def parse(label, has_todobqn: true) do
+    with [h | t] <- String.split(label, "\t"),
+         {_, _}  <- Integer.parse(h)
+    do
+      %{hooks: [todobqn: h], label: Enum.join(t, "\t"), done: false}
+    else
+      _ -> %{label: label}
+    end
+  end
 end
 
 defmodule Todo do
   defstruct [
     :label,
     done: false,
-    hook: []
+    hooks: []
   ]
 
   def empty(), do: []
 
   def envelop(todos, title) when is_binary(title) do
-    x = %Todo{label: title, done: true}
+    x = struct(Todo, Todo.Parser.parse(title, has_todobqn: true))
+        |> Map.put(:done, true)
+
     case todos do
       [h | t] when is_list(h) -> [[x | Enum.map(h, &mark_done!/1)] | t]
       [h | t]                 -> [[x, mark_done!(h)] | t]
@@ -59,7 +77,10 @@ defmodule Todo do
     t ++ [mark_done!(h)]
   end
   def mark_done!([h | t]) when is_list(h) , do: [mark_done!(h) | t]
-  def mark_done!(%Todo{done: false}=x), do: %{x | done: true} # FIXME Todo.Hook.run!(h.hook)
+  def mark_done!(%Todo{done: false, hooks: hooks}=x) do
+    Todo.Hook.run!(hooks)
+    %{x | done: true}
+  end
   def mark_done!(x), do: x
 
   defp join_(a, b), do: enlist(a) ++ enlist(b)
@@ -138,13 +159,21 @@ defmodule Todo do
   end
   defp serialise([]), do: []
 
-  defp bullet_to_str(%Todo{done: true}), do: "✔"
-  defp bullet_to_str(%Todo{done: false, hook: []}), do: "⋅"
-  defp bullet_to_str(%Todo{done: false, hook: _}), do: "◬"
+  defp bullet_to_str(%Todo{done: true}),  do: "✔"
+  defp bullet_to_str(%Todo{done: false}), do: "⋅"
 
   def deserialise(lines) when is_list(lines), do: Enum.map(lines, &deserialise/1)
   def deserialise(txt) do
-    Todo.Parser.parse(txt)
+    {done, rest} =  case txt do
+      "x " <> k -> {true, k}
+      "  " <> k -> {false, k}
+      k         -> {false, k}
+    end
+
+    %Todo{
+      done: done,
+      label: rest,
+    }
   end
 
   def persist!([%Todo{}=h | t]) do

@@ -17,8 +17,7 @@ defmodule FlowState do
 
   def suggest(%Model{}=m) do
     %{break: b, idle: i, work: w} = m.hg |> Progress.Hourglass.past |> Progress.Trend.stats
-    slots = (w + i) / @factor - b |> floor |> max(0)
-    slots * 4
+    (w + i) / @factor - b |> floor |> max(0)
   end
 
   def suggest_next_break(%Model{}=m) do

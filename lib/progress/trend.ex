@@ -24,7 +24,7 @@ defmodule Progress.Trend do
   defp add_([{:work, w} | t], x), do: [{:work, min(@mn, w + x)} | add_(t, max(x + w - @mn, 0))]
   defp add_([              ], _), do: []
 
-  def rewind(trend, k), do: Enum.drop(trend, k)
+  def rewind({trend, win}), do: {Enum.drop_while(trend, fn {w, b, _} -> w + b == 0 end), win}
 
   def idle({trend, {0, 0, t0}}) do
     Enum.reduce_while(trend, t0,
@@ -42,7 +42,7 @@ defmodule Progress.Trend do
   def size({x, _}), do: length(x)
   def id({x, _}), do: length(x)
 
-  def string({x, _, t}, n) do
+  def string({x, {_, _, t}}, n) do
     k = n - 2
     str = Enum.take(x, k)
     |> Enum.map(&str/1)

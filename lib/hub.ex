@@ -1,8 +1,6 @@
 defmodule Hub do
   use GenServer
 
-  @ignore_ticks false
-
   def start_link(_) do
     GenServer.start_link(__MODULE__, nil, name: :hub)
   end
@@ -18,16 +16,13 @@ defmodule Hub do
     Process.monitor(pid)
     {:noreply, state}
   end
-  def handle_cast(event, state) when event == :tick and @ignore_ticks do
-    Model.update(state, event)
-    |> noreply
-  end
   def handle_cast(event, state) do
     Model.update(state, event)
     |> effective_render
     |> noreply
   end
 
+  defp effective_render(%Model{}=model) when model.no_renders, do: model
   defp effective_render(%Model{}=model) do
     case Model.render(model) do
       %Model{}=m -> m

@@ -23,8 +23,8 @@ defmodule Progress.Hourglass do
 
   def remove_plan(model), do: model
 
-  def rewind({past, now}, k) do
-    {Trend.rewind(past, k), now}
+  def rewind({past, now}) do
+    {Trend.rewind(past), now}
   end
 
   def string({past, now}, {width, _}) do

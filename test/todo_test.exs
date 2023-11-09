@@ -256,28 +256,19 @@ end
 
 defmodule TodoParserTest do
   use ExUnit.Case
-  import Todo.Parser, only: [parse: 1]
+  import Todo.Parser, only: [parse: 2]
 
-  test "strings go as is" do
-    assert parse("x what is this?") == %Todo{
-      label: "what is this?",
-      hook: [],
-      done: true,
+  test "strings go as is and bullets are ignored" do
+    assert parse("x what is this?", has_todobqn: true) == %{
+      label: "x what is this?",
     }
   end
 
-  test "empty string" do
-    assert parse("  ") == %Todo{
-      label: "",
-      hook: [],
-    }
-  end
-
-  test "todobqn hook" do
-    assert parse("x who what when todobqn:something here") == %Todo{
-      label: "who what when here",
-      hook: [todobqn: "something"],
-      done: true,
+  test "todobqn task ID is parsed out of tsv" do
+    assert parse("194\tx who what when here", has_todobqn: true) == %{
+      label: "x who what when here",
+      hooks: [todobqn: "194"],
+      done: false,
     }
   end
 end

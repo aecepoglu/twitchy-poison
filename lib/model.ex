@@ -16,6 +16,7 @@ defmodule Model do
              logs: [],
              options: %{split_v?: true,
                         },
+             no_render: false,
              ]
 
   def make(create_initial_reminders: cir) do
@@ -33,6 +34,7 @@ defmodule Model do
   def ask(:chores, m), do: {:ok, m.chores |> Chore.serialise}
   def ask(:everything, m), do: m
   def ask({:option, k}, m), do: {:ok, Map.get(m.options, k, "undefined")}
+  def ask({:suggest, :break_length}, m), do: {:ok, [FlowState.suggest(m) |> to_string] }
 
   def update(m, :tick) do
     %{m | hg: Hourglass.tick(m.hg, m.mode),
@@ -47,8 +49,8 @@ defmodule Model do
   def update(m, {:received_chat_msg, from}), do:
     %{m | notification: from}
 
-  def update(m, {:rewind, n}), do:
-    %{m | hg: Hourglass.rewind(m.hg, n)}
+  def update(m, :rewind), do:
+    %{m | hg: Hourglass.rewind(m.hg)}
 
   def update(m, [:task | tl]) do
     {dp, todo_} = task_update(m.todo, tl)
@@ -77,6 +79,16 @@ defmodule Model do
   def update(m, :refresh), do:
     %{m | size: get_win_size()}
 
+  def update(m, {:chores, :put, x}), do:
+    %{m | chores: x}
+  def update(m, {:chores, :delete, x}), do:
+    %{m | chores: Chore.remove(m.chores, x)}
+
+  def update(m, {:option, "tail", "infinity"}), do:
+    %{m | tail_chatroom: :infinity}
+  def update(m, {:option, key, value}), do:
+    Map.update!(m, :options, &Map.put(&1, key, value))
+
   def update(%Model{popups: [h | _]}=m, update), do:
     Popup.update(h, update, m)
 
@@ -95,20 +107,10 @@ defmodule Model do
   def update(m, :debug), do:
     %{m | mode: :debug}
 
-  def update(m, {:chores, :put, x}), do:
-    %{m | chores: x}
-  def update(m, {:chores, :delete, x}), do:
-    %{m | chores: Chore.remove(m.chores, x)}
-
   def update(m, :focus_chat) when m.notification != nil, do:
     %{m | mode: :chat, chatroom: m.notification, notification: nil}
   def update(m, {:focus_chat, channel, room}), do:
     %{m | mode: :chat, chatroom: {channel, room}}
-
-  def update(m, {:option, "tail", "infinity"}), do:
-    %{m | tail_chatroom: :infinity}
-  def update(m, {:option, key, value}), do:
-    Map.update!(m, :options, &Map.put(&1, key, value))
 
   def update(m, _), do: m
 
@@ -183,11 +185,7 @@ defmodule Model do
     IO.write("DEBUG\n\r")
     {width, height} = m.size
     IO.write("size #{width}x#{height}\n\r")
-    IO.write("size #{Hourglass.duration(m.hg)}\n\r")
-  end
-  def render_contents(%Model{mode: :work}=m) do
-    IO.write(IO.ANSI.cursor(1, 1) <> IO.ANSI.clear())
-    render_work(m, embedded: false)
+    IO.write("time #{Hourglass.duration(m.hg)}\n\r")
   end
   def render_contents(%Model{mode: :chat}=m) do
     IO.write(IO.ANSI.cursor(1, 1) <> IO.ANSI.clear())
@@ -214,6 +212,10 @@ defmodule Model do
     tail_indicator = Util.UnlimitedArithmetic.str(m.tail_chatroom)
     IO.write("\n\rrmg: #{unread} @#{Time.utc_now()}, #{tail_indicator}")
     %{m | tail_chatroom: Util.UnlimitedArithmetic.subtract(m.tail_chatroom, 1) }
+  end
+  def render_contents(%Model{mode: _}=m) do
+    IO.write(IO.ANSI.cursor(1, 1) <> IO.ANSI.clear())
+    render_work(m, embedded: false)
   end
 
   defp render_work(%Model{size: {width, height}}=m, embedded: embed?) do
