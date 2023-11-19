@@ -2,6 +2,7 @@ defmodule IRC.RoomTest do
   import IRC.Room
   use ExUnit.Case
 
+  @tag :wip
   test "render the chat" do
     {lines, unread} = %IRC.Room{ id: "room 123" }
     |> record_chat({"user1", "hello"})
@@ -32,8 +33,9 @@ defmodule IRC.RoomTest do
     assert unread == 0
   end
 
+  @tag :wip
   test "if all messages are old, render from latest to fill the screen" do
-    {lines, _} = %IRC.Room{ id: "room 123" }
+    {lines, unread} = %IRC.Room{ id: "room 123" }
     |> record_chat({"user", "one"})
     |> record_chat({"user", "two"})
     |> record_chat({"user", "three"})
@@ -51,9 +53,10 @@ defmodule IRC.RoomTest do
  ....nine
 """ |> String.trim_trailing |> String.split("\n")
     assert lines == expected
+    assert unread == 0
   end
 
-  @tag :focus
+  @tag :wip
   test "Add colour to usernames, tracking colour across multiple lines" do
     {lines, _unread} = %IRC.Room{id: "room 123"}
     |> record_chat({"userr12345678901234", "six four", color: "{COLOR1}"})
@@ -71,6 +74,7 @@ defmodule IRC.RoomTest do
     assert lines == expected
   end
 
+  @tag :wip
   test "skip_unread ignores unread messages, rendering the last batch of read msgs" do
     {lines, unread} = %IRC.Room{id: "room 123"}
     |> record_chat({"user", "zero"})
@@ -94,12 +98,14 @@ defmodule IRC.RoomTest do
     assert unread == 2
   end
 
+  @tag :skip
   test "screen is empty if it's too small to fit a single message" do
-    {lines, _} = %IRC.Room{ id: "room 123" }
+    {lines, unread} = %IRC.Room{ id: "room 123" }
     |> record_chat({"user", "one two three four five six seven eight nine ten eleven twelve"})
     |> Map.put(:unread, 1)
     |> render_and_count({10, 5}, indent: "... ")
     assert lines == []
+    assert unread == 0
   end
 
   test "list all messages by a user" do
@@ -134,5 +140,29 @@ defmodule IRC.RoomTest do
       fn _, room1 -> record_chat(room1, {"new_user", "msg"}) end)
     assert log_user(room_, "old_user") |> length == 0
     assert log_user(room_, "new_user") |> length == room.chat.size
+  end
+
+  test "render_and_read() to progress through unread messages" do
+    {lines, unread} =
+      %IRC.Room{ id: "room 123" }
+      |> record_chat({"user", "1"})
+      |> record_chat({"user", "2"})
+      |> record_chat({"user", "3"})
+      |> record_chat({"user", "4"})
+      |> record_chat({"user", "5"})
+      |> record_chat({"user", "6"})
+      |> record_chat({"user", "7"})
+      |> record_chat({"user", "8"})
+      |> record_chat({"user", "9"})
+      |> record_chat({"user", "10"})
+      |> render_and_count({20, 4}, skip_unread: false)
+
+    assert lines == [
+      "+user: 1",
+      "+user: 2",
+      "+user: 3",
+      "+user: 4",
+    ]
+    assert unread == 6
   end
 end

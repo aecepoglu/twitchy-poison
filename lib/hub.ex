@@ -24,7 +24,7 @@ defmodule Hub do
 
   defp effective_render(%Model{}=model) when model.no_renders, do: model
   defp effective_render(%Model{}=model) do
-    case Model.render(model) do
+    case View.render(model) do
       %Model{}=m -> m
       _          -> model
     end

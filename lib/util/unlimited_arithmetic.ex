@@ -10,6 +10,9 @@ defmodule Util.UnlimitedArithmetic do
   def positive?(0), do: false
   def positive?(_), do: true
 
+  def zero?(0), do: true
+  def zero?(_), do: false
+
   def str(:infinity), do: "∞"
   def str(n), do: "#{n}"
 end

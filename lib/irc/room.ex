@@ -25,7 +25,7 @@ defmodule IRC.Room do
     {:reply, peek(state, num), state}
   end
   def handle_call({:render_and_read, size, opts}, _, state) do
-    reply = {_, unread} = render_and_count(state, size, opts)
+    reply = {_lines, unread} = render_and_count(state, size, opts)
     {:reply, reply, %{state | unread: unread}}
   end
   def handle_call(:list_users, _, state) do
@@ -84,25 +84,52 @@ defmodule IRC.Room do
   end
 
   # this is just public for the moment so I can test it easier
-  def render_and_count(%__MODULE__{chat: c, unread: unread0}, {width, height}, opts) do
-    skip = if Keyword.get(opts, :skip_unread, false) do unread0 else 0 end
-    {lines, unread_} = CircBuf.reduce_while(c, {[], unread0 - skip}, [skip: skip],
-      fn {user, message, badges}, {lines, unread} ->
-        color = Keyword.get(badges, :color, nil)
-        token = if unread > 0 do "+" else " " end
+  def render_and_count(%__MODULE__{}=room, {width, height}, opts) do
+    {new_lines, unread} = if Keyword.get(opts, :skip_unread, false) do
+      {[], room.unread}
+    else
+      get_unread_lines(room.chat, room.unread, {width, height}, opts)
+    end
+    old_lines = get_old_lines(room.chat, room.unread, {width, height - length(new_lines)}, opts)
+    {old_lines ++ new_lines, unread}
+  end
 
-        newlines = wrapped(color, user, message, opts, width - 1)
-        |> Enum.reverse
-        |> Enum.map(& token <> &1)
-        if length(lines) + length(newlines) > height do
-          {lines, unread}
-        else
-          {:continue, {lines ++ newlines,
-                       unread - 1}} #TODO fails if data has :continue
-        end
+  defp get_unread_lines(chat, unread, {width, height}, opts) do
+    d_unread = 1
+    token = "+"
+
+    f = fn {user, message, badges}, {lines, unread} ->
+      color = Keyword.get(badges, :color, nil)
+
+      newlines = wrapped(color, user, message, opts, width - 1)
+      |> Enum.map(& token <> &1)
+      if unread <= 0 || length(lines) + length(newlines) > height do
+        {lines, unread}
+      else
+        newlines_ = Enum.reverse(newlines)
+        {:continue, {newlines_ ++ lines, unread - d_unread}}
       end
-    )
-    {Enum.reverse(lines), skip + max(0, unread_)}
+    end
+    {lines, unread} = CircBuf.reduce_while(chat, {[], unread}, f, offset: unread, step: -1)
+    {Enum.reverse(lines), unread}
+  end
+
+  defp get_old_lines(chat, unread, {width, height}, opts) do
+    token = " "
+
+    f = fn {user, message, badges}, lines ->
+      color = Keyword.get(badges, :color, nil)
+
+      newlines = wrapped(color, user, message, opts, width - 1)
+      |> Enum.map(& token <> &1)
+      if length(lines) + length(newlines) > height do
+        lines
+      else
+        newlines_ = newlines
+        {:continue, newlines_ ++ lines}
+      end
+    end
+    _lines = CircBuf.reduce_while(chat, [], f, offset: unread + 1, step: 1)
   end
 
   defp wrapped(color, user, message, opts, width) do
