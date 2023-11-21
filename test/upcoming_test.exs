@@ -34,7 +34,33 @@ defmodule UpcomingTest do
       |> Upcoming.popup(fn _ -> false end)
 
     assert {unfin, fin} ==
-      { [{7, popup2}, {0, popup1}],
+      { [{0, popup1}, {7, popup2}],
         [] }
+  end
+
+  test "render in same line" do
+    popup1 = Popup.make(:rest, "take a break", snooze: 5)
+    popup2 = Popup.make(:one, "ex why zed")
+    popup3 = Popup.make(:two, "popup three")
+    txt = Upcoming.empty()
+    |> Upcoming.add(popup1, 10)
+    |> Upcoming.add(popup2, 3)
+    |> Upcoming.add(popup3, 5)
+    |> Upcoming.render({100, 1})
+
+    assert txt == "ex why zed in 3' // popup three in 5' // take a break in 10'"
+  end
+
+  test "render as many elements as fits" do
+    popup1 = Popup.make(:rest, "take a break", snooze: 5)
+    popup2 = Popup.make(:one, "ex why zed")
+    popup3 = Popup.make(:two, "popup three")
+    txt = Upcoming.empty()
+    |> Upcoming.add(popup1, 10)
+    |> Upcoming.add(popup2, 3)
+    |> Upcoming.add(popup3, 5)
+    |> Upcoming.render({45, 1})
+
+    assert txt == "ex why zed in 3' // popup three in 5'"
   end
 end

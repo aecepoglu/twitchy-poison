@@ -1,3 +1,4 @@
 %{
+  "exunit_stamp_formatter": {:hex, :exunit_stamp_formatter, "0.1.0", "7a0bbdd06b81302b8ce7a5167c57dcda5561a6157e4a107592a6dc8cc70d6696", [:mix], [], "hexpm", "0d4e8aabebc5f02b2dac55f4a82a6fcba2daad7b514ca9da61e4a28ef54d4be7"},
   "websockex": {:hex, :websockex, "0.4.3", "92b7905769c79c6480c02daacaca2ddd49de936d912976a4d3c923723b647bf0", [:mix], [], "hexpm", "95f2e7072b85a3a4cc385602d42115b73ce0b74a9121d0d6dbbf557645ac53e4"},
 }

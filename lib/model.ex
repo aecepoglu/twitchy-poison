@@ -1,3 +1,4 @@
+
 defmodule Model do
   alias Progress.Hourglass, as: Hourglass
 
@@ -33,6 +34,7 @@ defmodule Model do
   def ask(:task_get_cur, m), do: {:ok, m.todo |> Todo.dump_cur}
   def ask(:chores, m), do: {:ok, m.chores |> Chore.serialise}
   def ask(:everything, m), do: m
+  def ask(:summary, m), do: {:ok, Model.Summary.gen(m)}
   def ask({:option, k}, m), do: {:ok, Map.get(m.options, k, "undefined")}
   def ask({:suggest, :break_length}, m), do: {:ok, [FlowState.suggest(m) |> to_string] }
 

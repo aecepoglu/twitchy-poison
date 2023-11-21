@@ -1,1 +1,3 @@
-ExUnit.start()
+ExUnit.start(
+#  formatters: [ExUnit.Formatter.StampFormatter]
+)

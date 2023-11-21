@@ -1,4 +1,6 @@
 defmodule View do
+  alias Progress.Hourglass, as: Hourglass
+
   def render(%Model{size: {width, height}}) when width < 30 and height < 3 do
     IO.write(IO.ANSI.clear() <> IO.ANSI.cursor(1, 1))
     IO.write("#{width}x#{height} too small")

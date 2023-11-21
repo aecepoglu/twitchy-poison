@@ -19,6 +19,7 @@ defmodule Input.Socket.Message do
   defp identify(["key", k]), do: {:keypress, k}
   defp identify(["option", k, v]), do: {:option, k, v}
   defp identify(["option", k]), do: {:option, k}
+  defp identify(["summary"]), do: :summary
   defp identify([["chores", "put"] | lines]) do
     chores = lines |> Chore.deserialise |> Chore.sort
     {:chores, :put, chores}
@@ -152,7 +153,8 @@ defmodule Input.Socket do
     Input.Keyboard.report(k)
     :ok
   end
-
+  defp process_parsed(:summary = x), do: call(x)
+  
   defp cast(msg), do: Hub.cast(msg)
   defp call(msg), do: Hub.call(msg)
 

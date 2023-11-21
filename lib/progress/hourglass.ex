@@ -8,7 +8,7 @@ defmodule Progress.Hourglass do
 
   def past({x, _}), do: x
   def now({_, x}), do: x
-  def duration({past, _}), do: length(past) * 1
+  def duration({past, _}), do: Trend.duration(past) + 1
 
   def tick({past, now}, mode) do
     item = case mode do

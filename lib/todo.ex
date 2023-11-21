@@ -30,7 +30,7 @@ defmodule Todo do
 
   def envelop(todos, title) when is_binary(title) do
     x = struct(Todo, Todo.Parser.parse(title, has_todobqn: true))
-        |> Map.put(:done, true)
+        |> mark_done!()
 
     case todos do
       [h | t] when is_list(h) -> [[x | Enum.map(h, &mark_done!/1)] | t]
@@ -151,13 +151,13 @@ defmodule Todo do
   def dump_cur([h | _]), do: serialise([h])
   def dump_cur([]), do: []
 
-  defp serialise([h | t]) do
-    bullet = if h.done do "x" else " " end
-    h_ = "#{bullet} #{h.label}"
-    t_ = serialise(t)
-    [h_ | t_]
+  def serialise(xs) when is_list(xs) do
+    Enum.flat_map(xs, &serialise/1)
   end
-  defp serialise([]), do: []
+  def serialise(%Todo{done: done, label: label}) do
+    bullet = if done do "x" else " " end
+    "#{bullet} #{label}"
+  end
 
   defp bullet_to_str(%Todo{done: true}),  do: "✔"
   defp bullet_to_str(%Todo{done: false}), do: "⋅"

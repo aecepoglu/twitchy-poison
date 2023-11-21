@@ -39,7 +39,7 @@ defmodule Progress.Trend do
   def idle(_), do: 0
 
   def to_list({x, _}), do: x #TODO
-  def size({x, _}), do: length(x)
+  def duration({x, {_, _, t}}), do: length(x) * 4 + t
   def id({x, _}), do: length(x)
 
   def string({x, {_, _, t}}, n) do

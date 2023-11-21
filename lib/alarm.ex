@@ -16,6 +16,7 @@ defmodule Upcoming do
       alarms
     else
       [{delay, popup} | alarms]
+      |> Enum.sort(fn {a, _}, {b, _} -> a < b end)
     end
   end
 
@@ -33,12 +34,18 @@ defmodule Upcoming do
     |> Popup.List.has_id?(id)
   end
 
-  def render([{t, alarm} | _], {width, _}) do
-    "#{alarm.label} in #{t}'"
-    |> String.split_at(width)
-    |> elem(0)
-  end
   def render([], _), do: "-"
+  def render(alarms, {width, _}) do
+    alarms
+    |> Enum.scan([], fn {t, alarm}, acc -> ["#{alarm.label} in #{t}'" | acc] end)
+    |> Enum.map(& &1 |> Enum.reverse |> Enum.join(" // "))
+    |> Enum.reverse
+    |> Enum.find(& String.length(&1) <= width)
+    # |> Enum.flat_map_reduce()
+    # "#{alarm.label} in #{t}'"
+    # |> String.split_at(width)
+    # |> elem(0)
+  end
 
   def ids(alarms) do
     alarms
