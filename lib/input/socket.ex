@@ -14,12 +14,16 @@ defmodule Input.Socket.Message do
   defp identify(["irc", "switch", ch, room]), do: {:irc, :switch, ch, room}
   defp identify(["irc", "users", ch, room]), do: {:irc, :users, ch, room}
   defp identify(["irc", "log", ch, room, user]), do: {:irc, :log, ch, room, user}
+  defp identify(["irc", "stats", ch, room]), do: {:irc, :stats, ch, room}
   defp identify(["irc", "chat", ch, room | words]), do: {:irc, :chat, ch, room, Enum.join(words, " ")}
   defp identify(["irc", "list"]), do: {:irc, :list}
   defp identify(["key", k]), do: {:keypress, k}
+  defp identify(["mode", mode]) when mode in ["work", "break", "chat"], do: {:mode, String.to_existing_atom(mode)}
   defp identify(["option", k, v]), do: {:option, k, v}
   defp identify(["option", k]), do: {:option, k}
   defp identify(["summary"]), do: :summary
+  defp identify(["progress", "small"]), do: {:progress, :small}
+  defp identify(["progress", "big"]), do: {:progress, :big}
   defp identify([["chores", "put"] | lines]) do
     chores = lines |> Chore.deserialise |> Chore.sort
     {:chores, :put, chores}
@@ -122,7 +126,6 @@ defmodule Input.Socket do
   defp process(["auto-update yes"]), do: cast({:auto_update, true})
   defp process(["auto-update no"]),  do: cast({:auto_update, false})
   defp process(["restart socket"]),  do: {:error, :restart_socket}
-  defp process(["mode chat"]),       do: cast(:focus_chat)
   defp process(["rewind"]),          do: cast(:rewind)
   defp process([line]),      do: line  |> Message.parse |> process_parsed
   defp process([_|_]=lines), do: lines |> Message.parse |> process_parsed
@@ -132,6 +135,7 @@ defmodule Input.Socket do
   defp process_parsed({:irc, :join, ch, room}), do: IRC.join(ch, room)
   defp process_parsed({:irc, :part, ch, room}), do: IRC.part(ch, room)
   defp process_parsed({:irc, :users, ch, room}), do: IRC.list_users(ch, room)
+  defp process_parsed({:irc, :stats, ch, room}), do: IRC.stats(ch, room)
   defp process_parsed({:irc, :switch, ch, room}), do: cast({:focus_chat, ch, room})
   defp process_parsed({:irc, :log, ch, room, user}), do: IRC.log_user(ch, room, user)
   defp process_parsed({:irc, :chat, ch, room, msg}), do: IRC.text(ch, room, msg)
@@ -149,6 +153,9 @@ defmodule Input.Socket do
   defp process_parsed({:goal, :unset}=x), do: cast(x)
   defp process_parsed({:goal, :envelop}=x), do: cast(x)
   defp process_parsed({:suggest, :break_length}=x), do: call(x)
+  defp process_parsed({:progress, _}=x), do: cast(x)
+  defp process_parsed({:mode, :chat}=x), do: cast(x)
+  defp process_parsed({:mode, :break}=x), do: cast(x)
   defp process_parsed({:keypress, k}) do
     Input.Keyboard.report(k)
     :ok

@@ -2,6 +2,7 @@ defmodule TwitchyPoison.Supervisor do
   @moduledoc false
   @common [
       {DynamicSupervisor, name: IRC.Supervisor, strategy: :one_for_one},
+      Twitch.Eventsub.Supervisor,
       Twitch.Auth,
       {Registry, keys: :unique, name: Registry.IRC},
       IRC.RoomRegistry,

@@ -22,7 +22,7 @@ defmodule Hub do
     |> noreply
   end
 
-  defp effective_render(%Model{}=model) when model.no_renders, do: model
+  defp effective_render(%Model{no_render: true}=model), do: model
   defp effective_render(%Model{}=model) do
     case View.render(model) do
       %Model{}=m -> m

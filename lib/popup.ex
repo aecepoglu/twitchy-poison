@@ -1,45 +1,3 @@
-defmodule Geometry do
-  def hor_line(width, c) do
-    1..width
-    |> Enum.map(fn _ -> c end)
-    |> to_string
-  end
-end
-
-defmodule Bordered do
-  defp fill(txt, width, fill) do
-    k = String.length(txt)
-    if k < width do
-      pad = (k+1)..width
-      |> Enum.map(fn _ -> fill end)
-      |> to_string
-      txt <> pad
-      else
-        String.split_at(txt, width)
-        |> elem(0)
-      end
-  end
-
-  defp row(left, right, content, width, filler) do
-    left <> fill(content, width, filler) <> right
-  end
-
-  def rows(lines, width) do
-    String.Wrap.wrap_lines(lines, width)
-    |> Enum.map(& row("▌", "│", &1, width, " "))
-  end
-
-  def panel([first|_]=lines, scroll, height) do
-    selected = lines
-    |> Enum.drop(scroll)
-    |> Enum.take(height)
-    w = String.length(first)
-    top =   row("┌", "┐", "", w - 2, "─")
-    bot = [ row("▙", "┘", "", w - 2, "▄"), ]
-    [top | selected] ++ bot
-  end
-end
-
 defmodule Popup do
   defstruct [:id, :label,
              actions: %{},
@@ -109,6 +67,14 @@ defmodule Popup.Known do
 
   def idle(), do:
     Popup.make(:idle, "split your task", snooze: 5)
+
+  def make({:followed, name}) do
+    Popup.make(nil, "#{name} followed")
+  end
+
+  def make({:raid, name, count}) do
+    Popup.make(nil, "#{name} raids w/ #{count} ppl")
+  end
 end
 
 defmodule Popup.List do
@@ -120,10 +86,12 @@ defmodule Popup.List do
 
   def ids(list), do: list |> Enum.map(& &1.id) |> MapSet.new()
 
-  def delete(list, nil), do: list
-  def delete(list, id) when is_atom(id) do
-    Enum.filter(list, fn %Popup{id: x} -> id == x end)
+  def remove(list, nil), do: list
+  def remove(list, id) when is_atom(id) do
+    Enum.filter(list, fn %Popup{id: x} -> id != x end)
   end
+
+  def add(list, new), do: [new | list] # TODO do an existence check?
 
   def concat(olds, news) do
     existing = ids(olds)

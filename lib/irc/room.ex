@@ -2,34 +2,41 @@ defmodule IRC.Room do
   use GenServer
 
   defstruct [:id,
+             tracks: false,
              chat: CircBuf.make(1024, {"", "-", []}),
-             users: MapSet.new(),
+             users: %{},
              unread: 0,
              ]
 
   @impl true
-  def init(id) do
-    {:ok, %__MODULE__{id: id}}
+  def init(id, opts \\ []) do
+    tracks = Keyword.get(opts, :tracks, false)
+    {:ok, %__MODULE__{id: id, tracks: tracks}}
   end
 
   @impl true
   def handle_cast({:record_chat, user, msg, badges}, state), do: {:noreply, record_chat(state, {user, msg, badges})}
   def handle_cast({:add_user, user_id}, state), do: {:noreply, add_user(state, user_id)}
   def handle_cast({:remove_user, user_id}, state), do: {:noreply, remove_user(state, user_id)}
+  def handle_cast({:tracks, b}, state), do: {:noreply, %{state | tracks: b}}
 
   @impl true
   def handle_call(:get, _, state) do
     {:reply, state, state}
   end
+  def handle_call(:users, _, state) do
+    {:reply, state.users, state}
+  end
   def handle_call({:peek, num}, _, state) do
     {:reply, peek(state, num), state}
   end
   def handle_call({:render_and_read, size, opts}, _, state) do
-    reply = {_lines, unread} = render_and_count(state, size, opts)
+    {lines, unread} = render_and_count(state, size, opts)
+    reply = {lines, unread, state.unread - unread}
     {:reply, reply, %{state | unread: unread}}
   end
   def handle_call(:list_users, _, state) do
-    {:reply, MapSet.to_list(state.users), state}
+    {:reply, Map.keys(state.users), state}
   end
   def handle_call({:log_user, user_id}, _, state) do
     {:reply, log_user(state, user_id), state}
@@ -40,7 +47,7 @@ defmodule IRC.Room do
   end
 
   def render_and_read(pid, {_,_}=size, opts) when is_pid(pid) do
-    {_lines, _unread} = GenServer.call(pid, {:render_and_read, size, opts})
+    {_lines, _unread, _read} = GenServer.call(pid, {:render_and_read, size, opts})
   end
 
   def record_chat(pid, user, msg, badges \\ []) when is_pid(pid) do
@@ -49,23 +56,26 @@ defmodule IRC.Room do
   def record_chat(%__MODULE__{}=room, {a, b}) do
     record_chat(room, {a, b, []})
   end
-  def record_chat(%__MODULE__{chat: c}=room, {_, _, _}=msg) do
+  def record_chat(%__MODULE__{chat: c}=room, {userid, _, _}=msg) do
     %{room | chat: CircBuf.add(c, msg),
-             unread: room.unread + 1}
+             unread: room.unread + 1 }
+    |> track_user(userid)
   end
 
   def add_user(pid, user_id) when is_pid(pid) do
     GenServer.cast(pid, {:add_user, user_id})
   end
   def add_user(%__MODULE__{users: u}=room, user_id) do
-    %{room | users: MapSet.put(u, user_id)}
+    t = Time.utc_now()
+    %{room | users: Map.put(u, user_id, {0, t})}
   end
 
   def remove_user(pid, user_id) when is_pid(pid) do
+    IO.inspect({:remove_user, user_id})
     GenServer.cast(pid, {:remove_user, user_id})
   end
-  def remove_user(%__MODULE__{users: u}=room, id) do
-    %{room | users: MapSet.put(u, id)}
+  def remove_user(%__MODULE__{users: u}=room, user_id) do
+    %{room | users: Map.delete(u, user_id)}
   end
 
   def peek(pid, count) when is_pid(pid) do
@@ -81,6 +91,10 @@ defmodule IRC.Room do
         {user, txt, _} -> "#{user}: #{txt}"
       end
     end)
+  end
+
+  def users(pid) when is_pid(pid) do
+    GenServer.call(pid, :users)
   end
 
   # this is just public for the moment so I can test it easier
@@ -159,5 +173,12 @@ defmodule IRC.Room do
     |> CircBuf.to_list()
     |> Enum.filter(fn {u,_,_} -> u == user_id end)
     |> Enum.map(fn {_,msg,_} -> msg end)
+  end
+
+  defp track_user(%__MODULE__{          tracks: false}=room, _), do: room
+  defp track_user(%__MODULE__{users: users, tracks: true}=room, userid) do
+    t = Time.utc_now()
+    users_ = Map.update(users, userid, {1, t}, fn {n, _} -> {n + 1, t} end)
+    %{room | users: users_}
   end
 end

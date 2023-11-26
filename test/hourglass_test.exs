@@ -96,6 +96,29 @@ defmodule HourglassTest do
       |> Hourglass.tick(:work)
       |> Hourglass.past
       |> Trend.to_list
-    assert trend == [{3, 1, 4}, {2, 1, 4}]
+    assert trend == [{7, 1, 4}, {7, 1, 4}]
+  end
+
+  test "the big additions get carried over to the past" do
+    list = Trend.make()
+    |> Trend.add({:work, :none})
+    |> Trend.add({:work, :none})
+    |> Trend.add({:work, :none})
+    |> Trend.add({:work, :none}) #
+    |> Trend.add({:work, :none})
+    |> Trend.add({:work, :small})
+    |> Trend.add({:work, :none})
+    |> Trend.add({:work, :small}) #
+    |> Trend.add({:work, :small})
+    |> Trend.add({:work, :small})
+    |> Trend.add({:work, :none})
+    |> Trend.add({:work, :small}) #
+    |> Trend.add({:work, :none})
+    |> Trend.add({:work, :none})
+    |> Trend.add({:work, :none})
+    |> Trend.add({:work, :big}) #
+    |> Trend.to_list
+
+    assert list == [{8, 0, 4}, {8, 0, 4}, {4, 0, 4}, {0, 0, 4}]
   end
 end

@@ -225,7 +225,8 @@ defmodule Twitch.IrcClient do
     id = {"twitch", room}
     
     case IRC.RoomRegistry.fetch(id) do
-      {:ok, pid} -> GenServer.cast(pid, {:remove_user, username(userid)})
+      {:ok, pid} ->
+        GenServer.cast(pid, {:remove_user, username(userid)})
       _ -> nil
     end
     {nil, state}

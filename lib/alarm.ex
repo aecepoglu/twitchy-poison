@@ -41,10 +41,6 @@ defmodule Upcoming do
     |> Enum.map(& &1 |> Enum.reverse |> Enum.join(" // "))
     |> Enum.reverse
     |> Enum.find(& String.length(&1) <= width)
-    # |> Enum.flat_map_reduce()
-    # "#{alarm.label} in #{t}'"
-    # |> String.split_at(width)
-    # |> elem(0)
   end
 
   def ids(alarms) do
@@ -64,10 +60,11 @@ defmodule Popup.Actions do
   end
 
   def delete(model, _) do
-    %{model | popups:  case model.popups do
+    popups = case model.popups do
       [_|tl] -> tl
       x      -> x
-    end}
+    end
+    %{model | popups: popups}
   end
 
   def snooze(model, popup) do

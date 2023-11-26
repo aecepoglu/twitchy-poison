@@ -22,8 +22,8 @@ defmodule FlowStateTest do
       [p1, p2] = [m1, m2] |> Enum.map(&FlowState.alarms/1)
 
       if p1 != p2 do
-        IO.puts(Progress.Hourglass.string(m1.hg, {50, 1}))
-        IO.puts(Progress.Hourglass.string(m2.hg, {50, 1}))
+        IO.puts(Progress.Hourglass.string(m1.hg, :work, {50, 1}))
+        IO.puts(Progress.Hourglass.string(m2.hg, :work, {50, 1}))
         assert p1 == p2
         false
       else

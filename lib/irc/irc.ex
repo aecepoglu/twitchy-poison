@@ -11,6 +11,19 @@ defmodule IRC do
     {:ok, list}
   end
 
+  def stats(ch, room) do
+    now = Time.utc_now()
+    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {ch, room}})
+
+    lines = GenServer.call(pid, :users)
+    |> Map.to_list()
+    |> Enum.map(fn {user, {n, t}} -> {user, n, t} end)
+    |> Enum.sort_by(&elem(&1, 2), Time)
+    |> Enum.map(fn {user, n, t} -> "#{user}\t#{n}\t#{Time.diff(now, t)/60 + 1 |> floor}" end)
+
+    {:ok, lines}
+  end
+
   def log_user(ch, room, user) do
     {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {ch, room}})
     msgs = GenServer.call(pid, {:log_user, user})

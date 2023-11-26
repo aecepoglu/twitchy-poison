@@ -1,4 +1,3 @@
-
 defmodule Model do
   alias Progress.Hourglass, as: Hourglass
 
@@ -18,6 +17,7 @@ defmodule Model do
              options: %{split_v?: true,
                         },
              no_render: false,
+             t: 0,
              ]
 
   def make(create_initial_reminders: cir) do
@@ -40,7 +40,8 @@ defmodule Model do
 
   def update(m, :tick) do
     %{m | hg: Hourglass.tick(m.hg, m.mode),
-          upcoming: Upcoming.tick(m.upcoming)
+          upcoming: Upcoming.tick(m.upcoming),
+          t: m.t + 1,
      }
     |> popup_from_time_stuff()
     |> popup_from_upcoming()
@@ -56,15 +57,18 @@ defmodule Model do
 
   def update(m, [:task | tl]) do
     {dp, todo_} = task_update(m.todo, tl)
-    %{m | todo: todo_,
-          hg: Hourglass.progress(m.hg, dp),
-          popups: if todo_ > 0 do
-                    Popup.List.delete(m.popups, :idle)
-                  else
-                    m.popups
-                  end,
+    %{m | todo: todo_}
+    |> update({:progress, dp})
+  end
+
+  def update(m, {:progress, progress}) do
+    %{m | hg: Hourglass.progress(m.hg, progress),
+          popups: if progress != :none do Popup.List.remove(m.popups, :idle) else m.popups end
       }
   end
+
+  def update(m, {:notification, x}), do:
+    %{m | popups: Popup.List.add(m.popups, Popup.Known.make(x))}
 
   def update(m, {:goal, :set, x}), do:
     %{m | goal: Goal.set(m.goal, x)}
@@ -91,28 +95,31 @@ defmodule Model do
   def update(m, {:option, key, value}), do:
     Map.update!(m, :options, &Map.put(&1, key, value))
 
-  def update(%Model{popups: [h | _]}=m, update), do:
-    Popup.update(h, update, m)
-
   def update(m, {:mode, :break}), do:
-    %{m | mode: :break, upcoming: Upcoming.remove(m.upcoming, :rest)}
+    %{m | mode: :break,
+          upcoming: Upcoming.remove(m.upcoming, :rest),
+          popups: Popup.List.remove(m.popups, :rest)}
   def update(m, {:mode, :work}), do:
     %{m | mode: :work} |> schedule_next_break
+  def update(m, {:mode, :chat}) when m.notification != nil, do:
+    %{m | mode: :chat, chatroom: m.notification, notification: nil}
   def update(m, {:mode, mode}) when mode in [:meeting], do:
     %{m | mode: mode}
+
+  def update(m, :debug), do:
+    %{m | mode: :debug}
+
+  def update(m, {:focus_chat, channel, room}), do:
+    %{m | mode: :chat, chatroom: {channel, room}}
+
+  # every other type of update should be intercepted by the active Popup
+  def update(%Model{popups: [h | _]}=m, update), do:
+    Popup.update(h, update, m)
 
   def update(m, {:key, :space}) when m.mode == :chat, do:
     %{m | tail_chatroom: Util.UnlimitedArithmetic.add(m.tail_chatroom, 1)}
   def update(m, {:key, :escape}) when m.mode == :chat, do:
     %{m | mode: :work}
-
-  def update(m, :debug), do:
-    %{m | mode: :debug}
-
-  def update(m, :focus_chat) when m.notification != nil, do:
-    %{m | mode: :chat, chatroom: m.notification, notification: nil}
-  def update(m, {:focus_chat, channel, room}), do:
-    %{m | mode: :chat, chatroom: {channel, room}}
 
   def update(m, _), do: m
 

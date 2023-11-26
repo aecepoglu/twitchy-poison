@@ -27,15 +27,19 @@ defmodule Progress.Hourglass do
     {Trend.rewind(past), now}
   end
 
-  def string({past, now}, {width, _}) do
-    past_ = Trend.string(past, width - 1)
+  def string({past, now}, mode, {width, _}) do
+    past_ = Trend.string(past, width - 4)
     now_ = CurWin.string(now)
-    "#{past_} #{now_}"
+    "#{past_} #{string_of_mode(mode)} #{now_}"
   end
 
-  def render(x, {width, height}) do
+  def string_of_mode(:break), do: "⏸"
+  def string_of_mode(m) when m in [:work, :meeting, :chat], do: "⏵"
+  def string_of_mode(_), do: "?"
+
+  def render(x, mode, {width, height}) do
     import IO.ANSI
-    cursor(1, 1) <> clear_line() <> string(x, {width - 2, height})
+    cursor(1, 1) <> clear_line() <> string(x, mode, {width, height})
   end
 
   def idle?({past, now}) do
