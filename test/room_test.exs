@@ -1,3 +1,33 @@
+defmodule IRC.RoomRegistryTest do
+  use ExUnit.Case
+
+  test "..." do
+    id1 = {"chan1", "room1"}
+    id2 = {"chan1", "room2"}
+    id3 = {"chan2", "room1"}
+    id4 = {"chan2", "room2"}
+
+    [id1, id2, id3, id4]
+    |> Enum.each(&IRC.create_room/1)
+
+    addr = 
+
+    :ok = IRC.Room.add_user(IRC.via(id1), "usr1")
+    :ok = IRC.Room.add_user(IRC.via(id1), "usr2")
+    :ok = IRC.Room.add_user(IRC.via(id3), "usr1")
+
+    users = [id1, id2, id3, id4]
+    |> Enum.map(fn id -> id |> IRC.via |> IRC.Room.users |> Map.keys end)
+
+    assert users == [
+      ["usr1", "usr2"],
+      [],
+      ["usr1"],
+      []
+    ]
+  end
+end
+
 defmodule IRC.RoomTest do
   import IRC.Room
   use ExUnit.Case

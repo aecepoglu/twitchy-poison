@@ -16,7 +16,7 @@ defmodule Model do
              logs: [],
              options: %{split_v?: true,
                         },
-             no_render: false,
+             no_render: true,
              t: 0,
              ]
 
@@ -92,6 +92,7 @@ defmodule Model do
 
   def update(m, {:option, "tail", "infinity"}), do:
     %{m | tail_chatroom: :infinity}
+  def update(m, {:option, :no_render, b}), do: %{m | no_render: b}
   def update(m, {:option, key, value}), do:
     Map.update!(m, :options, &Map.put(&1, key, value))
 

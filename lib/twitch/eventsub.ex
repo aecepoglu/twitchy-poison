@@ -1,7 +1,7 @@
 defmodule Twitch.Eventsub do
   use WebSockex
-  @rest_url "http://127.0.0.1:8080/"
-  @ws_url "ws://127.0.0.1:8080/ws"
+  #@ws_url "ws://127.0.0.1:8080/ws"
+  @ws_url "wss://eventsub.wss.twitch.tv/ws"
   @my_clientid "er74mamcsw4il4ctkzvzrznnj9t2w1"
   @my_userid "818716685"
 
@@ -44,6 +44,7 @@ defmodule Twitch.Eventsub do
     {:ok, state}
   end
   defp handle(%{"message_type" => "session_welcome"}, %{"session" => %{"id" => session_id}}, %__MODULE__{}=state) do
+    IO.inspect(state)
     if state.on_welcome != nil do
       try do
         state.on_welcome.()
@@ -60,14 +61,14 @@ defmodule Twitch.Eventsub do
         "method" => "websocket",
         "session_id" => session_id}
 
-      subscribe("channel.follow", "2", %{
+      Twitch.Request.subscribe("channel.follow", "2", %{
         "broadcaster_user_id" => @my_userid,
         "moderator_user_id" => @my_userid,
-      }, transport, headers) |> IO.inspect
+      }, transport, headers)
 
-      subscribe("channel.raid", "1", %{
+      Twitch.Request.subscribe("channel.raid", "1", %{
         "to_broadcaster_user_id" => @my_userid,
-      }, transport, headers) |> IO.inspect
+      }, transport, headers)
     end
 
     {:ok, %{state | session_id: session_id, subscribed: true, on_welcome: nil}}
@@ -105,22 +106,13 @@ defmodule Twitch.Eventsub do
     {:ok, %{state | on_deathbed: true}}
   end
 
-  defp subscribe(topic, version, condition, transport, headers) do
-     body = %{
-      "type" => topic,
-      "version" => version,
-      "condition" => condition,
-      "transport" => transport,
-    }
-    HTTPoison.post(@rest_url <> "eventsub/subscriptions", Poison.encode!(body), headers)
-  end
 
   defp make_conn(url, state) do
     headers = make_headers(state)
     WebSockex.Conn.new(url, extra_headers: headers)
   end
 
-  defp make_headers(%{auth_token: token}) do
+  def make_headers(%{auth_token: token}) do
     [ "Authorization": "Bearer #{token}",
       "Client-Id": @my_clientid,
       "Content-Type": "application/json"

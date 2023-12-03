@@ -33,12 +33,14 @@ defmodule View do
     else
       height
     end
-    {:ok, pid} = IRC.RoomRegistry.fetch(m.chatroom)
-    {lines, unread, d_unread}
-      = IRC.Room.render_and_read(pid, {width, h_rmd - 1},
-                                 indent: " ",
-                                 skip_unread: Util.UnlimitedArithmetic.zero?(m.tail_chatroom)
-                                 )
+    {lines, unread, d_unread} =
+      m.chatroom
+      |> IRC.via
+      |> IRC.Room.render_and_read({width, h_rmd - 1},
+                                  indent: " ",
+                                  skip_unread: Util.UnlimitedArithmetic.zero?(m.tail_chatroom)
+                                  )
+
     lines
     |> Enum.join("\n\r")
     |> IO.write()

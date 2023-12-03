@@ -8,9 +8,13 @@ defmodule IRC.Room do
              unread: 0,
              ]
 
+  def start_link(id, opts \\ []) do
+    GenServer.start_link(__MODULE__, id, opts)
+  end
+
   @impl true
   def init(id, opts \\ []) do
-    tracks = Keyword.get(opts, :tracks, false)
+    tracks = Keyword.get(opts, :tracks, id == "whimsicallymade") # TODO hardcoded
     {:ok, %__MODULE__{id: id, tracks: tracks}}
   end
 
@@ -42,17 +46,10 @@ defmodule IRC.Room do
     {:reply, log_user(state, user_id), state}
   end
 
-  def start_link(id) do
-    GenServer.start_link(__MODULE__, id)
+  def render_and_read(addr, {_,_}=size, opts) do
+    {_lines, _unread, _read} = GenServer.call(addr, {:render_and_read, size, opts})
   end
 
-  def render_and_read(pid, {_,_}=size, opts) when is_pid(pid) do
-    {_lines, _unread, _read} = GenServer.call(pid, {:render_and_read, size, opts})
-  end
-
-  def record_chat(pid, user, msg, badges \\ []) when is_pid(pid) do
-    GenServer.cast(pid, {:record_chat, user, msg, badges})
-  end
   def record_chat(%__MODULE__{}=room, {a, b}) do
     record_chat(room, {a, b, []})
   end
@@ -61,26 +58,25 @@ defmodule IRC.Room do
              unread: room.unread + 1 }
     |> track_user(userid)
   end
-
-  def add_user(pid, user_id) when is_pid(pid) do
-    GenServer.cast(pid, {:add_user, user_id})
+  def record_chat(addr, user, msg, badges \\ []) do
+    GenServer.cast(addr, {:record_chat, user, msg, badges})
   end
+
   def add_user(%__MODULE__{users: u}=room, user_id) do
     t = Time.utc_now()
     %{room | users: Map.put(u, user_id, {0, t})}
   end
-
-  def remove_user(pid, user_id) when is_pid(pid) do
-    IO.inspect({:remove_user, user_id})
-    GenServer.cast(pid, {:remove_user, user_id})
+  def add_user(addr, user_id) do
+    GenServer.cast(addr, {:add_user, user_id})
   end
+
   def remove_user(%__MODULE__{users: u}=room, user_id) do
     %{room | users: Map.delete(u, user_id)}
   end
-
-  def peek(pid, count) when is_pid(pid) do
-    GenServer.call(pid, {:peek, count})
+  def remove_user(addr, user_id) do
+    GenServer.cast(addr, {:remove_user, user_id})
   end
+
   def peek(%__MODULE__{chat: c}, count) do
     CircBuf.take(c, count)
     |> Enum.map(fn x ->
@@ -92,9 +88,12 @@ defmodule IRC.Room do
       end
     end)
   end
+  def peek(addr, count) do
+    GenServer.call(addr, {:peek, count})
+  end
 
-  def users(pid) when is_pid(pid) do
-    GenServer.call(pid, :users)
+  def users(addr) do
+    GenServer.call(addr, :users)
   end
 
   # this is just public for the moment so I can test it easier
@@ -165,14 +164,14 @@ defmodule IRC.Room do
   defp zip([h1 | t1], [h2 | t2], acc), do: zip(t1, t2, [(h1 <> h2) | acc])
   defp zip([],        t2,        acc), do: Enum.reverse(acc) ++ t2
 
-  def log_user(pid, user_id) when is_pid(pid) do
-    GenServer.call(pid, {:log_user, user_id})
-  end
   def log_user(%__MODULE__{}=room, user_id) do
     room.chat
     |> CircBuf.to_list()
     |> Enum.filter(fn {u,_,_} -> u == user_id end)
     |> Enum.map(fn {_,msg,_} -> msg end)
+  end
+  def log_user(addr, user_id) do
+    GenServer.call(addr, {:log_user, user_id})
   end
 
   defp track_user(%__MODULE__{          tracks: false}=room, _), do: room

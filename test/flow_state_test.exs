@@ -6,6 +6,18 @@ defmodule FlowStateTest do
     }}
   end 
 
+  test "suggest a break if I've worked long enough", %{model: m} do
+    ops = [:work, :idle]
+    Enum.each(1..32, fn _ ->
+      _popups = m
+
+      |> log_activity(Enum.map(1..10, fn _ -> Enum.random(ops)  end))
+      |> FlowState.alarms
+
+      assert match?(_popups, [%Popup{label: "take a break"}])
+    end)
+  end
+
   test "break suggestions should take into account only the time spent since last break", %{model: m} do
     ops =[:work,:work,:work,:work, :idle,:idle,:idle, :break]
     Enum.any?(1..32, fn _ ->

@@ -5,18 +5,33 @@ defmodule IRC do
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
 
+  def create_room(ch, room) do
+    spec = %{
+        id: IRC.Room,
+        start: {IRC.Room, :start_link, [room, [name: via({ch, room})]]}
+    }
+    DynamicSupervisor.start_child(IRC.Supervisor, spec)
+  end
+
   def list_users(ch, room) do
-    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {ch, room}})
-    list = GenServer.call(pid, :list_users)
+    list = {ch, room}
+    |> IRC.via
+    |> IRC.Room.users
+
     {:ok, list}
+  end
+
+  def list_rooms() do
+    [] # TODO removed feature
   end
 
   def stats(ch, room) do
     now = Time.utc_now()
-    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {ch, room}})
 
-    lines = GenServer.call(pid, :users)
-    |> Map.to_list()
+    lines = {ch, room}
+    |> via
+    |> IRC.Room.users
+    |> Map.to_list
     |> Enum.map(fn {user, {n, t}} -> {user, n, t} end)
     |> Enum.sort_by(&elem(&1, 2), Time)
     |> Enum.map(fn {user, n, t} -> "#{user}\t#{n}\t#{Time.diff(now, t)/60 + 1 |> floor}" end)
@@ -25,28 +40,34 @@ defmodule IRC do
   end
 
   def log_user(ch, room, user) do
-    {:ok, pid} = GenServer.call(IRC.RoomRegistry, {:fetch, {ch, room}})
-    msgs = GenServer.call(pid, {:log_user, user})
+    msgs = {ch, room}
+    |> IRC.via
+    |> IRC.Room.log_user(user)
+
     {:ok, msgs}
   end
 
-  def get(ch) do
-    case Registry.lookup(Registry.IRC, ch) do
+  def fetch(id) do
+    case Registry.lookup(Registry.IRC, id) do
       [{pid, _}] -> pid
       _          -> nil
     end
   end
+  def get(x), do: fetch(x) # TODO get rid of this
 
   def connect("twitch"=ch) do
+    create_room(ch, "-")
+
     child_spec = %{
       id: Twitch.IrcClient,
       start: {Twitch.IrcClient, :start_link, [ch, [name: via(ch)]]},
     }
-    {:ok, pid} = DynamicSupervisor.start_child(IRC.Supervisor, child_spec)
-    Hub.monitor_please(pid)
-    :ok = Enum.each(@twitch_default_rooms, fn room ->
-        WebSockex.send_frame(pid, {:text, "JOIN #" <> room})
-      end)
+    {:ok, _} = DynamicSupervisor.start_child(IRC.Supervisor, child_spec)
+
+    @twitch_default_rooms
+    |> Enum.map(&join(ch, &1))
+    
+    Enum.each(@twitch_default_rooms, &join(ch, &1))
   end
 
   def disconnect(ch) do
@@ -56,6 +77,7 @@ defmodule IRC do
   end
 
   def join(ch, room) do
+    create_room(ch, room)
     send_frame(ch, "JOIN #" <> room)
   end
 
@@ -73,7 +95,7 @@ defmodule IRC do
     |> WebSockex.send_frame({:text, msg})
   end
 
-  defp via(name) do
+  def via(name) do
     {:via, Registry, {Registry.IRC, name}}
   end
 end

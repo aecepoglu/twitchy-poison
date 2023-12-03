@@ -140,7 +140,7 @@ defmodule Input.Socket do
   defp process_parsed({:irc, :log, ch, room, user}), do: IRC.log_user(ch, room, user)
   defp process_parsed({:irc, :chat, ch, room, msg}), do: IRC.text(ch, room, msg)
   defp process_parsed({:irc, :list}) do
-    reply = IRC.RoomRegistry.list()
+    reply = IRC.list_rooms()
             |> Enum.map(fn {a, b} -> a <> " " <> b end)
     {:ok, reply}
   end

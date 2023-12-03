@@ -25,7 +25,6 @@ defmodule String.Wrap do
   def wrap(_, _, _, lines, {limit, indentation}) when indentation >= limit, do: lines
   def wrap([], _, words, lines, _), do: [words | lines]
   def wrap([{word, wordlen} | tl]=rmd, linelen, words, lines, {limit, indentation}=opts) do
-    #IO.inspect({"WRAP()", {word, wordlen}, linelen, words, {limit, indentation}})
     cond do
       wordlen + linelen <= limit ->
         wrap(tl, wordlen + linelen + 1, [word | words], lines, opts)
